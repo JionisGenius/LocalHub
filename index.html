@@ -1,0 +1,3033 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalHub - 구미/경북 지역 정보 공유 커뮤니티</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue.js 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Leaflet.js CSS & JS CDN (지도 시각화) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+    .leaflet-container {
+      z-index: 1;
+    }
+    .game-canvas {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      display: block;
+      background: #0f172a;
+      touch-action: none;
+      image-rendering: pixelated;
+    }
+    .game-item-sprite {
+      width: 2.5rem;
+      height: 2.5rem;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    .game-loadout-sprite {
+      width: 2rem;
+      height: 2rem;
+      margin: 0 auto;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+    .game-rarity-common {
+      border-color: #cbd5e1;
+    }
+    .game-rarity-rare {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <div id="app" class="min-h-screen flex flex-col justify-between" @click="languageMenuOpen = false">
+    <!-- 상단 네비게이션 바 -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center space-x-3 cursor-pointer" @click="changeTab('home')">
+          <div class="bg-indigo-600 text-white p-2 rounded-lg flex items-center justify-center">
+            <i class="fa-solid fa-map-location-dot text-xl"></i>
+          </div>
+          <span class="text-2xl font-black text-indigo-600 tracking-wider">LocalHub</span>
+          <span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded-full font-bold">{{ t('gumi_gb') }}</span>
+        </div>
+        
+        <nav class="hidden md:flex items-center space-x-5 text-sm">
+          <button @click="changeTab('home')" :class="activeTab === 'home' ? 'text-indigo-600 font-bold border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'" class="pb-1 transition-colors">{{ t('home') }}</button>
+          <button @click="changeTab('board')" :class="activeTab === 'board' ? 'text-indigo-600 font-bold border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'" class="pb-1 transition-colors">{{ t('board') }}</button>
+          <button @click="changeTab('map')" :class="activeTab === 'map' ? 'text-indigo-600 font-bold border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'" class="pb-1 transition-colors">{{ t('map') }}</button>
+          <button @click="changeTab('weather')" :class="activeTab === 'weather' ? 'text-indigo-600 font-bold border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'" class="pb-1 transition-colors"><i class="fa-solid fa-cloud-sun mr-1"></i>{{ t('weather') }}</button>
+          <button @click="changeTab('calendar')" :class="activeTab === 'calendar' ? 'text-indigo-600 font-bold border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'" class="pb-1 transition-colors">{{ t('calendar') }}</button>
+          <button @click="changeTab('dashboard')" :class="activeTab === 'dashboard' ? 'text-indigo-600 font-bold border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'" class="pb-1 transition-colors">{{ t('dashboard') }}</button>
+          <button @click="changeTab('game')" :class="activeTab === 'game' ? 'text-indigo-600 font-bold border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'" class="pb-1 transition-colors">{{ t('game') }}</button>
+        </nav>
+
+        <div class="flex items-center space-x-3">
+          <!-- 다국어 선택 -->
+          <div class="relative">
+            <button type="button" @click.stop="languageMenuOpen = !languageMenuOpen" class="flex items-center text-gray-500 hover:text-indigo-600 font-medium text-sm p-2 rounded-lg hover:bg-gray-100" :aria-expanded="languageMenuOpen">
+              <i class="fa-solid fa-globe mr-1"></i>{{ currentLangLabel }}
+              <i class="fa-solid fa-chevron-down text-xs ml-1 transition-transform" :class="languageMenuOpen ? 'rotate-180' : ''"></i>
+            </button>
+            <div v-if="languageMenuOpen" @click.stop class="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-md shadow-lg z-50 overflow-hidden">
+              <button type="button" @click="changeLanguage('ko')" class="w-full text-left px-4 py-2 text-sm hover:bg-indigo-50" :class="currentLang === 'ko' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-gray-700'">한국어</button>
+              <button type="button" @click="changeLanguage('en')" class="w-full text-left px-4 py-2 text-sm hover:bg-indigo-50" :class="currentLang === 'en' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-gray-700'">English</button>
+              <button type="button" @click="changeLanguage('ja')" class="w-full text-left px-4 py-2 text-sm hover:bg-indigo-50" :class="currentLang === 'ja' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-gray-700'">日本語</button>
+              <button type="button" @click="changeLanguage('zh')" class="w-full text-left px-4 py-2 text-sm hover:bg-indigo-50" :class="currentLang === 'zh' ? 'bg-indigo-50 text-indigo-600 font-bold' : 'text-gray-700'">中文</button>
+            </div>
+          </div>
+
+          <button @click="showKeyModal = true" class="text-gray-500 hover:text-indigo-600 p-2 rounded-full hover:bg-gray-100 transition-colors" title="AI 설정">
+            <i class="fa-solid fa-gear text-lg"></i>
+          </button>
+          <button @click="changeTab('board'); openWriteForm()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm text-sm">
+            <i class="fa-solid fa-pen-to-square mr-1"></i> {{ t('write') }}
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 모바일 하단 네비게이션 탭 -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 flex justify-start overflow-x-auto py-2 shadow-lg">
+      <button @click="changeTab('home')" :class="activeTab === 'home' ? 'text-indigo-600 font-bold' : 'text-gray-400'" class="flex-1 min-w-[64px] flex flex-col items-center text-[10px]">
+        <i class="fa-solid fa-house text-lg mb-1"></i> {{ t('home') }}
+      </button>
+      <button @click="changeTab('board')" :class="activeTab === 'board' ? 'text-indigo-600 font-bold' : 'text-gray-400'" class="flex-1 min-w-[64px] flex flex-col items-center text-[10px]">
+        <i class="fa-solid fa-clipboard-list text-lg mb-1"></i> {{ t('board') }}
+      </button>
+      <button @click="changeTab('map')" :class="activeTab === 'map' ? 'text-indigo-600 font-bold' : 'text-gray-400'" class="flex-1 min-w-[64px] flex flex-col items-center text-[10px]">
+        <i class="fa-solid fa-map-location-dot text-lg mb-1"></i> {{ t('map') }}
+      </button>
+      <button @click="changeTab('weather')" :class="activeTab === 'weather' ? 'text-indigo-600 font-bold' : 'text-gray-400'" class="flex-1 min-w-[64px] flex flex-col items-center text-[10px]">
+        <i class="fa-solid fa-cloud-sun text-lg mb-1"></i> {{ t('weather') }}
+      </button>
+      <button @click="changeTab('calendar')" :class="activeTab === 'calendar' ? 'text-indigo-600 font-bold' : 'text-gray-400'" class="flex-1 min-w-[64px] flex flex-col items-center text-[10px]">
+        <i class="fa-solid fa-calendar-days text-lg mb-1"></i> {{ t('calendar') }}
+      </button>
+      <button @click="changeTab('dashboard')" :class="activeTab === 'dashboard' ? 'text-indigo-600 font-bold' : 'text-gray-400'" class="flex-1 min-w-[64px] flex flex-col items-center text-[10px]">
+        <i class="fa-solid fa-chart-pie text-lg mb-1"></i> {{ t('dashboard') }}
+      </button>
+      <button @click="changeTab('game')" :class="activeTab === 'game' ? 'text-indigo-600 font-bold' : 'text-gray-400'" class="flex-1 min-w-[64px] flex flex-col items-center text-[10px]">
+        <i class="fa-solid fa-gamepad text-lg mb-1"></i> {{ t('game') }}
+      </button>
+    </div>
+
+    <!-- 메인 콘텐츠 영역 -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full mb-16 md:mb-0">
+      
+      <!-- 1. 홈 화면 -->
+      <section v-if="activeTab === 'home'" class="space-y-12">
+        <!-- 상단 배너 -->
+        <div class="relative bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-2xl p-8 sm:p-12 shadow-xl overflow-hidden">
+          <div class="absolute inset-0 bg-cover bg-center opacity-10" style="background-image: url('https://images.unsplash.com/photo-1549692520-acc662212280?auto=format&fit=crop&w=1000&q=80')"></div>
+          <div class="relative z-10 max-w-3xl space-y-4">
+            <span class="bg-indigo-500 text-white text-xs px-3 py-1 rounded-full font-semibold uppercase tracking-wider">Gumi & Gyeongbuk Portal</span>
+            <h1 class="text-3xl sm:text-5xl font-black leading-tight">{{ t('hero_title') }}<br>{{ t('hero_subtitle') }}</h1>
+            <p class="text-indigo-100 text-sm sm:text-lg">{{ t('hero_desc') }}</p>
+            <div class="pt-4 flex flex-wrap gap-4">
+              <button @click="changeTab('board')" class="bg-white text-indigo-700 hover:bg-indigo-50 px-6 py-3 rounded-lg font-bold transition-all shadow-md">{{ t('go_board') }}</button>
+              <button @click="changeTab('map')" class="bg-indigo-500 hover:bg-indigo-400 text-white px-6 py-3 rounded-lg font-bold border border-indigo-400 transition-all">{{ t('go_map') }}</button>
+              <button @click="changeTab('game')" class="bg-purple-500 hover:bg-purple-400 text-white px-6 py-3 rounded-lg font-bold border border-purple-400 transition-all"><i class="fa-solid fa-gamepad mr-2"></i>{{ t('go_game') }}</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 카테고리 퀵 링크 -->
+        <div class="space-y-4">
+          <h2 class="text-xl font-bold flex items-center"><i class="fa-solid fa-circle-nodes mr-2 text-indigo-600"></i> {{ t('what_curious') }}</h2>
+          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+            <div v-for="cat in categories" :key="cat.name" @click="viewCategory(cat.name)" class="bg-white p-5 rounded-xl border border-gray-200 hover:border-indigo-400 hover:shadow-md transition-all text-center cursor-pointer group">
+              <div :class="cat.bgColor" class="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3 text-lg transition-transform group-hover:scale-110">
+                <i :class="cat.icon"></i>
+              </div>
+              <span class="font-bold text-sm text-gray-700 group-hover:text-indigo-600">{{ translateCategory(cat.name) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 최근 게시글 & 축제 브리핑 (2열 구조) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <!-- 좌: 최근 게시물 -->
+          <div class="lg:col-span-2 space-y-4 bg-white p-6 rounded-xl border border-gray-200">
+            <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h3 class="text-lg font-bold flex items-center"><i class="fa-solid fa-paper-plane mr-2 text-indigo-600"></i> {{ t('realtime_feed') }}</h3>
+              <button @click="changeTab('board')" class="text-xs text-indigo-600 hover:underline">{{ t('view_all') }} <i class="fa-solid fa-chevron-right ml-1"></i></button>
+            </div>
+            <div v-if="recentPosts.length === 0" class="py-12 text-center text-gray-400 text-sm">
+              <i class="fa-regular fa-comment-dots text-4xl mb-3"></i>
+              <p>{{ t('map_empty') }}</p>
+            </div>
+            <div v-else class="divide-y divide-gray-100">
+              <div v-for="post in recentPosts" :key="post.id" @click="viewPostDetail(post)" class="py-4 hover:bg-gray-50 px-2 rounded-lg transition-colors cursor-pointer flex justify-between items-center">
+                <div class="space-y-1 max-w-[80%]">
+                  <div class="flex items-center space-x-2">
+                    <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-semibold">{{ translateCategory(post.category) }}</span>
+                    <h4 class="font-bold text-gray-900 truncate">{{ post.title }}</h4>
+                  </div>
+                  <p class="text-xs text-gray-500 flex items-center space-x-3">
+                    <span><i class="fa-regular fa-clock mr-1"></i>{{ formatDate(post.createdAt) }}</span>
+                    <span><i class="fa-regular fa-eye mr-1"></i>{{ post.views }}</span>
+                    <span><i class="fa-regular fa-thumbs-up mr-1"></i>{{ post.likes }}</span>
+                  </p>
+                </div>
+                <div class="text-indigo-600 hover:text-indigo-800"><i class="fa-solid fa-arrow-right-long"></i></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 우: 축제 현황 브리핑 -->
+          <div class="space-y-4 bg-indigo-900 text-indigo-100 p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-bold text-white flex items-center border-b border-indigo-800 pb-3"><i class="fa-solid fa-wand-magic-sparkles mr-2 text-yellow-400"></i> {{ t('monthly_festival') }}</h3>
+            <div class="space-y-4 divide-y divide-indigo-800">
+              <div v-for="fest in embeddedData.festival.items.slice(0, 3)" :key="fest.contentid" class="pt-3 first:pt-0">
+                <h4 class="font-bold text-white text-sm hover:underline cursor-pointer" @click="viewFestivalDetail(fest)">{{ localText(fest.title) }}</h4>
+                <p class="text-xs text-indigo-300 mt-1 flex items-center"><i class="fa-regular fa-calendar mr-1"></i> {{ formatEventDate(fest.eventstartdate) }} ~ {{ formatEventDate(fest.eventenddate) }}</p>
+                <p class="text-xs text-indigo-200 mt-1 line-clamp-2">{{ fest.program || '특별한 행사가 준비되어 있습니다.' }}</p>
+              </div>
+            </div>
+            <button @click="changeTab('calendar')" class="w-full py-2 bg-indigo-800 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold mt-4 transition-colors">{{ t('view_in_calendar') }}</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. 익명 게시판 화면 -->
+      <section v-if="activeTab === 'board'" class="space-y-6">
+        <!-- 글쓰기/수정 폼 모달 또는 전환 -->
+        <div v-if="isWriting" class="bg-white p-6 rounded-xl border border-gray-200 shadow-md space-y-6">
+          <h2 class="text-xl font-bold text-gray-900 border-b pb-3">{{ formPostId ? '이야기 수정하기' : '새로운 이야기 나누기' }}</h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">카테고리</label>
+              <select v-model="postForm.category" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                <option v-for="cat in boardCategories" :key="cat" :value="cat">{{ translateCategory(cat) }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">제목</label>
+              <input type="text" v-model="postForm.title" placeholder="제목을 입력하세요." class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-1">내용</label>
+              <textarea v-model="postForm.content" rows="8" placeholder="경북인들과 나누고 싶은 유익한 이야기를 편하게 남겨주세요." class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">작성자</label>
+                <input type="text" v-model="postForm.author" disabled class="w-full border border-gray-200 bg-gray-100 rounded-lg p-3 text-sm text-gray-500" />
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1">수정용 비밀번호 <span class="text-red-500 text-xs">(숫자 4자리)</span></label>
+                <input type="password" maxlength="4" v-model="postForm.password" placeholder="비밀번호 4자리" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+              </div>
+            </div>
+          </div>
+          <div class="flex justify-end space-x-3 pt-4 border-t">
+            <button @click="closeWriteForm" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors">취소</button>
+            <button @click="submitPost" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm">등록</button>
+          </div>
+        </div>
+
+        <!-- 게시글 상세 보기 -->
+        <div v-else-if="selectedPost" class="bg-white p-6 rounded-xl border border-gray-200 shadow-md space-y-6">
+          <div class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <span class="bg-indigo-100 text-indigo-800 text-xs px-2.5 py-1 rounded font-bold uppercase tracking-wider">{{ selectedPost.category }}</span>
+              <div class="flex space-x-3">
+                <button @click="goBackToList" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-semibold transition-colors"><i class="fa-solid fa-list mr-1"></i> 목록으로</button>
+                <button @click="openEditForm(selectedPost)" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors"><i class="fa-solid fa-edit mr-1"></i> 수정</button>
+                <button @click="promptDelete(selectedPost)" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors"><i class="fa-solid fa-trash mr-1"></i> 삭제</button>
+              </div>
+            </div>
+            
+            <div class="border-b pb-4 space-y-2">
+              <h1 class="text-2xl sm:text-3xl font-black text-gray-900">{{ selectedPost.title }}</h1>
+              <div class="flex flex-wrap text-xs text-gray-500 gap-x-4 gap-y-1">
+                <span><i class="fa-solid fa-user-secret mr-1"></i> {{ selectedPost.author }}</span>
+                <span><i class="fa-regular fa-clock mr-1"></i> {{ formatDate(selectedPost.createdAt) }}</span>
+                <span><i class="fa-regular fa-eye mr-1"></i> 조회수 {{ selectedPost.views }}</span>
+                <span><i class="fa-regular fa-thumbs-up mr-1"></i> 추천 {{ selectedPost.likes }}</span>
+              </div>
+            </div>
+
+            <div class="py-6 text-gray-700 leading-relaxed whitespace-pre-line text-base">
+              {{ selectedPost.content }}
+            </div>
+
+            <div class="flex justify-center py-4">
+              <button @click="likePost(selectedPost)" class="flex items-center space-x-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-6 py-3 rounded-full font-bold transition-all shadow-sm">
+                <i class="fa-regular fa-thumbs-up text-lg"></i>
+                <span>추천하기 {{ selectedPost.likes }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 게시판 기본 목록 및 검색 -->
+        <div v-else class="space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex flex-wrap gap-2">
+              <button v-for="tab in ['전체', ...boardCategories]" :key="tab" @click="filterBoardCategory(tab)" :class="selectedBoardCategory === tab ? 'bg-indigo-600 text-white font-bold' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'" class="px-4 py-2 rounded-lg text-xs font-semibold transition-all">
+                {{ translateCategory(tab) }}
+              </button>
+            </div>
+            <div class="relative flex-grow sm:max-w-md">
+              <input type="text" v-model="searchQuery" placeholder="관심 있는 키워드를 검색해보세요." class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <div class="absolute left-3 top-2.5 text-gray-400">
+                <i class="fa-solid fa-magnifying-glass"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 게시글 테이블 -->
+          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs font-bold uppercase tracking-wider">
+                    <th class="p-4 w-16 text-center">번호</th>
+                    <th class="p-4 w-28">분류</th>
+                    <th class="p-4">제목</th>
+                    <th class="p-4 w-24 text-center">작성자</th>
+                    <th class="p-4 w-28 text-center">작성일</th>
+                    <th class="p-4 w-20 text-center">조회</th>
+                    <th class="p-4 w-20 text-center">추천</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 text-sm text-gray-700">
+                  <tr v-if="paginatedPosts.length === 0">
+                    <td colspan="7" class="p-12 text-center text-gray-400">
+                      <i class="fa-solid fa-clipboard-list text-4xl mb-3"></i>
+                      <p>작성된 게시글이 없습니다. 첫 글을 등록해 보세요!</p>
+                    </td>
+                  </tr>
+                  <tr v-for="(post, index) in paginatedPosts" :key="post.id" @click="viewPostDetail(post)" class="hover:bg-gray-50 transition-colors cursor-pointer">
+                    <td class="p-4 text-center text-gray-400 font-medium">{{ totalFilteredPosts - (currentPage - 1) * itemsPerPage - index }}</td>
+                    <td class="p-4">
+                      <span class="px-2 py-1 bg-gray-100 rounded text-xs font-semibold text-gray-600">{{ translateCategory(post.category) }}</span>
+                    </td>
+                    <td class="p-4 font-bold text-gray-900 hover:text-indigo-600 truncate max-w-xs sm:max-w-md">{{ post.title }}</td>
+                    <td class="p-4 text-center text-gray-500"><i class="fa-solid fa-user-secret text-xs mr-1 text-gray-400"></i>{{ post.author }}</td>
+                    <td class="p-4 text-center text-gray-500">{{ formatDate(post.createdAt) }}</td>
+                    <td class="p-4 text-center text-gray-500">{{ post.views }}</td>
+                    <td class="p-4 text-center text-indigo-600 font-semibold">{{ post.likes }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <!-- 페이지네이션 -->
+            <div v-if="totalPages > 1" class="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
+              <div class="flex-1 flex justify-between sm:hidden">
+                <button @click="prevPage" :disabled="currentPage === 1" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-xs font-medium rounded-md bg-white hover:bg-gray-50 disabled:opacity-50">이전</button>
+                <button @click="nextPage" :disabled="currentPage === totalPages" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-xs font-medium rounded-md bg-white hover:bg-gray-50 disabled:opacity-50">다음</button>
+              </div>
+              <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p class="text-xs text-gray-500">
+                    전체 <span class="font-medium">{{ totalFilteredPosts }}</span>개 중 
+                    <span class="font-medium">{{ (currentPage - 1) * itemsPerPage + 1 }}</span> - 
+                    <span class="font-medium">{{ Math.min(currentPage * itemsPerPage, totalFilteredPosts) }}</span> 표시
+                  </p>
+                </div>
+                <div>
+                  <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-1" aria-label="Pagination">
+                    <button @click="prevPage" :disabled="currentPage === 1" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                      <i class="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                    <button v-for="page in totalPages" :key="page" @click="setPage(page)" :class="currentPage === page ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'" class="relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                      {{ page }}
+                    </button>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                      <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. 지역 정보 맵 -->
+      <section v-show="activeTab === 'map'" class="space-y-6">
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-6">
+          <div class="space-y-4">
+            <div>
+              <h2 class="text-xl font-bold text-gray-900 flex items-center"><i class="fa-solid fa-map-location-dot text-indigo-600 mr-2"></i>{{ t('map_title') }}</h2>
+              <p class="text-sm text-gray-500 mt-1">{{ t('map_desc') }}</p>
+            </div>
+
+            <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+              <div class="flex flex-wrap gap-2">
+                <button v-for="type in mapTypes" :key="type.value" @click="filterMapType(type.value)" :class="selectedMapType === type.value ? 'bg-indigo-600 text-white font-bold' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" class="px-3 py-2 rounded-lg text-xs font-semibold transition-all">
+                  {{ translateCategory(type.name) }} <span class="opacity-70">{{ type.count }}</span>
+                </button>
+              </div>
+
+              <div class="relative w-full xl:w-80 shrink-0">
+                <input v-model.trim="mapSearchQuery" type="search" :placeholder="t('map_search_placeholder')" class="w-full border border-gray-300 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-gray-400"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 대량 마커는 Canvas 렌더러로 표시한다. -->
+            <div class="lg:col-span-2 h-[560px] rounded-xl border overflow-hidden relative shadow-inner" id="map-container">
+              <div id="leaflet-map" class="w-full h-full"></div>
+            </div>
+
+            <div class="space-y-4 max-h-[560px] overflow-y-auto pr-2 lg:border-l lg:pl-4">
+              <h3 class="text-md font-bold border-b pb-2 flex items-center justify-between gap-3 sticky top-0 bg-white z-10">
+                <span>{{ t('map_place_list') }} ({{ filteredMapItems.length }})</span>
+                <span class="text-xs text-gray-400 whitespace-nowrap">{{ visibleMapItems.length }} / {{ filteredMapItems.length }}</span>
+              </h3>
+
+              <div v-if="filteredMapItems.length === 0" class="py-16 text-center text-sm text-gray-400">
+                <i class="fa-solid fa-location-dot text-3xl mb-3"></i>
+                <p>{{ t('empty_post') }}</p>
+              </div>
+
+              <div v-else class="space-y-3">
+                <button v-for="item in visibleMapItems" :key="item.contentid" type="button" @click="focusOnMapItem(item)" :disabled="!item.hasCoordinates" :class="item.hasCoordinates ? 'hover:bg-indigo-50 cursor-pointer' : 'opacity-60 cursor-default'" class="w-full text-left p-3 bg-gray-50 border border-gray-200 rounded-lg transition-colors space-y-1">
+                  <h4 class="font-bold text-gray-800 text-sm">{{ localText(item.title) }}</h4>
+                  <p class="text-xs text-gray-500"><i class="fa-solid fa-location-dot text-indigo-500 mr-1"></i>{{ [localText(item.addr1), localText(item.addr2)].filter(Boolean).join(' ') || '-' }}</p>
+                  <div class="flex flex-wrap items-center gap-2 pt-1">
+                    <span class="inline-block text-[10px] px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded font-semibold">{{ translateCategory(localText(item.contentTypeName)) }}</span>
+                    <span v-if="!item.hasCoordinates" class="text-[10px] px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded font-semibold">{{ t('map_no_coordinates') }}</span>
+                  </div>
+                </button>
+
+                <button v-if="remainingMapItemCount > 0" type="button" @click="loadMoreMapItems" class="w-full py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-colors">
+                  {{ t('map_load_more') }} ({{ remainingMapItemCount }})
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- 4. 경북 구미 실시간 날씨 -->
+      <section v-if="activeTab === 'weather'" class="space-y-6">
+        <div class="bg-gradient-to-br from-sky-500 to-indigo-700 text-white rounded-2xl p-6 sm:p-10 shadow-xl overflow-hidden relative">
+          <div class="absolute -right-12 -top-12 text-white/10 text-[180px]"><i class="fa-solid fa-cloud-sun"></i></div>
+          <div class="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+            <div>
+              <p class="text-sky-100 text-sm font-bold mb-2"><i class="fa-solid fa-location-dot mr-1"></i>{{ t('weather_location') }}</p>
+              <h2 class="text-3xl sm:text-4xl font-black">{{ t('weather_title') }}</h2>
+              <p class="text-sky-100 mt-2">{{ t('weather_desc') }}</p>
+              <p v-if="weatherUpdatedAt" class="text-xs text-sky-200 mt-3">{{ t('weather_updated') }}: {{ weatherUpdatedAt }}</p>
+            </div>
+            <button @click="fetchWeather" :disabled="weather.loading" class="self-start lg:self-center bg-white/15 hover:bg-white/25 border border-white/30 px-5 py-3 rounded-xl font-bold transition disabled:opacity-60">
+              <i class="fa-solid fa-rotate-right mr-2" :class="weather.loading ? 'fa-spin' : ''"></i>{{ t('weather_refresh') }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="weather.error" class="bg-red-50 border border-red-200 text-red-700 rounded-xl p-5">
+          <i class="fa-solid fa-triangle-exclamation mr-2"></i>{{ weather.error }}
+        </div>
+
+        <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-1 bg-white rounded-2xl border border-gray-200 shadow-sm p-7 flex flex-col items-center justify-center min-h-[310px]">
+            <i :class="weatherIcon" class="text-7xl text-sky-500 mb-5"></i>
+            <div v-if="weather.loading" class="text-gray-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i>{{ t('weather_loading') }}</div>
+            <template v-else>
+              <p class="text-6xl font-black text-gray-900">{{ weather.temperature ?? '--' }}<span class="text-2xl">°C</span></p>
+              <p class="text-xl font-bold text-gray-700 mt-3">{{ weatherDescription }}</p>
+              <p class="text-sm text-gray-500 mt-2">{{ t('feels_like') }} {{ weather.apparentTemperature ?? '--' }}°C</p>
+            </template>
+          </div>
+
+          <div class="lg:col-span-2 grid grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"><p class="text-xs text-gray-500 font-bold"><i class="fa-solid fa-droplet text-blue-500 mr-1"></i>{{ t('humidity') }}</p><p class="text-2xl font-black mt-2">{{ weather.humidity ?? '--' }}%</p></div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"><p class="text-xs text-gray-500 font-bold"><i class="fa-solid fa-wind text-teal-500 mr-1"></i>{{ t('wind_speed') }}</p><p class="text-2xl font-black mt-2">{{ weather.windSpeed ?? '--' }} km/h</p></div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"><p class="text-xs text-gray-500 font-bold"><i class="fa-solid fa-cloud-rain text-indigo-500 mr-1"></i>{{ t('precipitation') }}</p><p class="text-2xl font-black mt-2">{{ weather.precipitation ?? '--' }} mm</p></div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm"><p class="text-xs text-gray-500 font-bold"><i class="fa-solid fa-compass text-orange-500 mr-1"></i>{{ t('wind_direction') }}</p><p class="text-2xl font-black mt-2">{{ weather.windDirection ?? '--' }}°</p></div>
+            <div class="col-span-2 bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex items-center justify-between gap-4">
+              <div><p class="text-xs text-gray-500 font-bold">{{ t('today_range') }}</p><p class="text-xl font-black mt-2"><span class="text-blue-600">{{ weather.minTemperature ?? '--' }}°</span> / <span class="text-red-500">{{ weather.maxTemperature ?? '--' }}°</span></p></div>
+              <div class="text-right"><p class="text-xs text-gray-500 font-bold">{{ t('rain_probability') }}</p><p class="text-xl font-black mt-2">{{ weather.rainProbability ?? '--' }}%</p></div>
+            </div>
+          </div>
+        </div>
+        <p class="text-right text-[11px] text-gray-400">{{ t('weather_source') }}</p>
+      </section>
+
+      <!-- 5. 축제 캘린더 (선택 기능 - 달력시각화) -->
+      <section v-if="activeTab === 'calendar'" class="space-y-6">
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4">
+            <div>
+              <h2 class="text-xl font-bold text-gray-900 flex items-center"><i class="fa-solid fa-calendar-days text-indigo-600 mr-2"></i> 구미/경북 축제 캘린더</h2>
+              <p class="text-sm text-gray-500">2026년 하반기에 펼쳐지는 다채롭고 풍요로운 전통 및 예술 축제 일정입니다.</p>
+            </div>
+            <!-- 달력 연도/월 조작 -->
+            <div class="flex items-center space-x-4 bg-gray-50 p-2 rounded-lg border">
+              <button @click="prevMonth" class="text-gray-500 hover:text-indigo-600"><i class="fa-solid fa-chevron-left"></i></button>
+              <span class="font-bold text-indigo-900 text-sm sm:text-base">{{ currentYear }}년 {{ currentMonth + 1 }}월</span>
+              <button @click="nextMonth" class="text-gray-500 hover:text-indigo-600"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 달력 판 -->
+            <div class="lg:col-span-2 space-y-4">
+              <!-- 요일 헤더 -->
+              <div class="grid grid-cols-7 text-center font-bold text-xs text-gray-400 uppercase tracking-wider">
+                <span class="text-red-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="text-indigo-500">토</span>
+              </div>
+              <!-- 날짜 판 -->
+              <div class="grid grid-cols-7 gap-1 border-t pt-2 min-h-[300px]">
+                <!-- 빈 칸 메우기 -->
+                <div v-for="blank in calendarBlanks" :key="'blank-'+blank" class="p-2 border border-transparent text-gray-300 text-xs"></div>
+                <!-- 실제 날짜 -->
+                <div v-for="day in calendarDays" :key="'day-'+day" :class="[
+                  isToday(day) ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-gray-100 hover:bg-gray-50',
+                  getDayOfWeekClass(day)
+                ]" class="p-2 border rounded-lg min-h-[70px] relative transition-colors">
+                  <span class="text-xs font-bold">{{ day }}</span>
+                  <!-- 날짜별 축제 리스트 표시 -->
+                  <div class="space-y-1 mt-1">
+                    <div v-for="fest in getFestivalsOnDate(day)" :key="fest.contentid" @click.stop="viewFestivalDetail(fest)" class="text-[9px] px-1 py-0.5 rounded truncate font-medium bg-red-100 text-red-800 border-l-2 border-red-500 cursor-pointer" :title="localText(fest.title)">
+                      {{ localText(fest.title) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 축제 목록 디테일 -->
+            <div class="space-y-4 bg-gray-50 p-5 rounded-xl border border-gray-200">
+              <h3 class="font-bold text-gray-900 border-b pb-2 text-sm flex items-center justify-between">
+                <span>{{ currentMonth + 1 }}월 주요 축제 가이드</span>
+                <span class="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold">총 {{ monthlyFestivals.length }}개</span>
+              </h3>
+              <div v-if="monthlyFestivals.length === 0" class="py-12 text-center text-gray-400 text-xs">
+                <i class="fa-solid fa-moon text-2xl mb-2"></i>
+                <p>이번 달에는 등록된 축제 일정이 없습니다.</p>
+              </div>
+              <div v-else class="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                <div v-for="fest in monthlyFestivals" :key="fest.contentid" class="p-3 bg-white border border-gray-200 rounded-lg hover:border-indigo-400 transition-colors cursor-pointer" @click="viewFestivalDetail(fest)">
+                  <h4 class="font-bold text-gray-800 text-xs hover:text-indigo-600 transition-colors">{{ localText(fest.title) }}</h4>
+                  <p class="text-[10px] text-gray-500 mt-1 flex items-center"><i class="fa-regular fa-calendar-check mr-1 text-indigo-500"></i>{{ formatEventDate(fest.eventstartdate) }} ~ {{ formatEventDate(fest.eventenddate) }}</p>
+                  <p class="text-[10px] text-gray-500 mt-0.5 flex items-center"><i class="fa-solid fa-location-dot mr-1 text-red-400"></i>{{ fest.addr1 || '상세 장소 추후 공지' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. 데이터 시각화 대시보드 (선택 구현 - 차트시각화) -->
+      <section v-show="activeTab === 'dashboard'" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- 좌: 카드 통계 요약 -->
+          <div class="lg:col-span-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+            <div v-for="stat in dashboardStats" :key="stat.title" class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center space-x-4">
+              <div :class="stat.color" class="w-12 h-12 rounded-lg flex items-center justify-center text-white text-xl">
+                <i :class="stat.icon"></i>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 font-bold uppercase tracking-wider">{{ stat.title }}</span>
+                <h4 class="text-2xl font-black text-gray-900 mt-1">{{ stat.value }}</h4>
+              </div>
+            </div>
+          </div>
+
+          <!-- 우: 대시보드 차트 시각화 -->
+          <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-6">
+            <h2 class="text-lg font-bold text-gray-900 flex items-center"><i class="fa-solid fa-chart-pie mr-2 text-indigo-600"></i> 구미/경북 공공데이터 분포 대시보드</h2>
+            <div class="h-[300px] w-full relative">
+              <canvas id="category-bar-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. 구미 전입자 생존기 -->
+      <section v-show="activeTab === 'game'" class="space-y-6">
+        <!-- 시작 화면 -->
+        <div v-if="gameView === 'intro'" class="space-y-6">
+          <div class="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white rounded-2xl p-8 sm:p-12 shadow-xl">
+            <div class="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-indigo-500 opacity-20"></div>
+            <div class="absolute -left-20 -bottom-24 w-72 h-72 rounded-full bg-purple-500 opacity-20"></div>
+            <div class="relative z-10 max-w-3xl space-y-5">
+              <span class="inline-flex items-center bg-white/10 border border-white/20 text-indigo-100 text-xs px-3 py-1 rounded-full font-bold">
+                <i class="fa-solid fa-location-crosshairs mr-2"></i>LocalHub Web Game
+              </span>
+              <h2 class="text-3xl sm:text-5xl font-black leading-tight">구미 전입자 생존기</h2>
+              <p class="text-slate-200 leading-relaxed">구미 농장에 몰려드는 닭과 암탉을 막고 지역 정보를 수집하세요. 제한 시간이 끝나면 황소 보스가 등장하며, 보스가 던진 일부 알에서만 닭이 소환됩니다.</p>
+              <div class="flex flex-wrap gap-3 text-xs text-slate-200">
+                <span class="bg-white/10 px-3 py-2 rounded-lg"><i class="fa-solid fa-keyboard mr-2"></i>WASD / 방향키 이동</span>
+                <span class="bg-white/10 px-3 py-2 rounded-lg"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i>자동 공격</span>
+                <span class="bg-white/10 px-3 py-2 rounded-lg"><i class="fa-solid fa-arrow-up-right-dots mr-2"></i>레벨업 3지선다</span>
+              </div>
+              <button @click="startGame" class="bg-indigo-500 hover:bg-indigo-400 text-white px-8 py-3 rounded-xl font-black transition-all shadow-lg">
+                <i class="fa-solid fa-play mr-2"></i>STAGE {{ selectedGameStage.id }} 시작
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+              <p class="text-xs text-gray-500 font-bold">최고 점수</p>
+              <p class="text-2xl font-black text-indigo-700 mt-1">{{ gameRecords.bestScore.toLocaleString() }}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+              <p class="text-xs text-gray-500 font-bold">최고 레벨</p>
+              <p class="text-2xl font-black text-indigo-700 mt-1">Lv.{{ gameRecords.bestLevel }}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+              <p class="text-xs text-gray-500 font-bold">최장 생존</p>
+              <p class="text-2xl font-black text-indigo-700 mt-1">{{ formatGameTime(gameRecords.bestSurvival) }}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+              <p class="text-xs text-gray-500 font-bold">장소 도감</p>
+              <p class="text-2xl font-black text-indigo-700 mt-1">{{ gameCollection.places.length }}곳</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div class="xl:col-span-2 bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 class="font-black text-gray-900"><i class="fa-solid fa-map text-indigo-600 mr-2"></i>스테이지 선택</h3>
+                  <p class="text-xs text-gray-500 mt-1">클리어한 단계의 다음 맵이 순차적으로 해금됩니다.</p>
+                </div>
+                <span class="text-xs font-bold text-indigo-600">최고 클리어 STAGE {{ gameProgress.highestCleared }}</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <button v-for="stage in gameStages" :key="stage.id" @click="selectGameStage(stage.id)" :disabled="stage.id > gameProgress.highestUnlocked" :class="[
+                  selectedGameStage.id === stage.id ? 'border-indigo-500 ring-2 ring-indigo-100 bg-indigo-50' : 'border-gray-200 bg-white',
+                  stage.id > gameProgress.highestUnlocked ? 'opacity-45 cursor-not-allowed' : 'hover:border-indigo-300'
+                ]" class="text-left border-2 rounded-xl p-4 transition-all">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black text-indigo-600">STAGE {{ stage.id }}</span>
+                    <i :class="stage.id > gameProgress.highestUnlocked ? 'fa-solid fa-lock text-gray-400' : stage.icon" class="text-sm"></i>
+                  </div>
+                  <p class="font-black text-sm text-gray-900 mt-2">{{ stage.name }}</p>
+                  <p class="text-[10px] text-gray-500 mt-1">난이도 {{ stage.difficultyLabel }} · 점수 x{{ stage.scoreMultiplier.toFixed(1) }}</p>
+                </button>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h3 class="font-black text-gray-900"><i class="fa-solid fa-user-pen text-indigo-600 mr-2"></i>랭킹 이름</h3>
+              <input v-model.trim="gameProgress.playerName" @change="saveGameStorage" maxlength="10" placeholder="전입자 이름" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+              <div class="bg-indigo-50 rounded-lg p-4 text-xs text-indigo-700 leading-relaxed">게임 종료 시 점수, 스테이지, 레벨이 브라우저 로컬 랭킹에 자동 등록됩니다.</div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="p-6 border-b flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="font-black text-gray-900"><i class="fa-solid fa-ranking-star text-amber-500 mr-2"></i>로컬 랭킹 보드</h3>
+                <p class="text-xs text-gray-500 mt-1">이 브라우저에서 플레이한 최고 기록 10개</p>
+              </div>
+              <span class="text-xs font-bold text-gray-400">총 {{ gameRankings.length }}개 기록</span>
+            </div>
+            <div v-if="gameLeaderboard.length === 0" class="py-12 text-center text-sm text-gray-400">아직 등록된 기록이 없습니다.</div>
+            <div v-else class="overflow-x-auto">
+              <table class="w-full min-w-[680px] text-sm">
+                <thead class="bg-gray-50 text-xs text-gray-500">
+                  <tr><th class="px-5 py-3 text-center">순위</th><th class="px-5 py-3 text-left">이름</th><th class="px-5 py-3 text-center">스테이지</th><th class="px-5 py-3 text-right">점수</th><th class="px-5 py-3 text-center">레벨</th><th class="px-5 py-3 text-center">결과</th><th class="px-5 py-3 text-right">플레이 일시</th></tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="(entry, index) in gameLeaderboard" :key="entry.id" :class="index < 3 ? 'bg-amber-50/40' : ''">
+                    <td class="px-5 py-4 text-center font-black"><i v-if="index < 3" class="fa-solid fa-medal text-amber-500 mr-1"></i>{{ index + 1 }}</td>
+                    <td class="px-5 py-4 font-bold text-gray-900">{{ entry.name }}</td>
+                    <td class="px-5 py-4 text-center"><span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-xs font-bold">STAGE {{ entry.stage }}</span></td>
+                    <td class="px-5 py-4 text-right font-black text-indigo-700">{{ entry.score.toLocaleString() }}</td>
+                    <td class="px-5 py-4 text-center">Lv.{{ entry.level }}</td>
+                    <td class="px-5 py-4 text-center"><span :class="entry.victory ? 'text-emerald-600' : 'text-gray-400'" class="font-bold text-xs">{{ entry.victory ? '클리어' : '실패' }}</span></td>
+                    <td class="px-5 py-4 text-right text-xs text-gray-500">{{ formatGameDate(entry.playedAt) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 class="font-bold text-gray-900 mb-4"><i class="fa-solid fa-palette text-indigo-600 mr-2"></i>게임 에셋 적용 구성</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div class="bg-gray-50 rounded-lg p-4"><strong>도구 무기 3종</strong><p class="text-xs text-gray-500 mt-1">괭이 투척, 회전 곡괭이, 정착 가구 낙하</p></div>
+              <div class="bg-gray-50 rounded-lg p-4"><strong>몬스터 구성</strong><p class="text-xs text-gray-500 mt-1">닭·암탉, 부화 알을 사용하는 최종 보스 황소</p></div>
+              <div class="bg-gray-50 rounded-lg p-4"><strong>프론트엔드 실행</strong><p class="text-xs text-gray-500 mt-1">Canvas와 localStorage만 사용하며 백엔드가 필요하지 않습니다.</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 플레이 화면 -->
+        <div v-else-if="['playing', 'levelup', 'paused'].includes(gameView)" class="space-y-4">
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-4 text-sm font-bold">
+                <span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg">STAGE {{ gameHud.stage }}</span>
+                <span class="text-indigo-700">Lv.{{ gameHud.level }}</span>
+                <span><i class="fa-solid fa-skull mr-1 text-gray-400"></i>{{ gameHud.kills }}</span>
+                <span><i class="fa-regular fa-clock mr-1 text-gray-400"></i>{{ formatGameTime(gameHud.remainingTime) }}</span>
+                <span class="text-amber-600"><i class="fa-solid fa-trophy mr-1"></i>{{ gameHud.score.toLocaleString() }}</span>
+              </div>
+              <button @click="toggleGamePause" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold">
+                <i :class="gameView === 'paused' ? 'fa-solid fa-play' : 'fa-solid fa-pause'" class="mr-1"></i>{{ gameView === 'paused' ? '계속하기' : '일시정지' }}
+              </button>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-3">
+                <span class="w-12 text-[11px] font-bold text-red-600">HP</span>
+                <div class="flex-grow bg-red-100 rounded-full h-3 overflow-hidden"><div class="bg-red-500 h-full transition-all" :style="{ width: `${Math.max(0, gameHud.hp / gameHud.maxHp * 100)}%` }"></div></div>
+                <span class="w-20 text-right text-[11px] text-gray-500">{{ Math.ceil(gameHud.hp) }} / {{ Math.ceil(gameHud.maxHp) }}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="w-12 text-[11px] font-bold text-indigo-600">EXP</span>
+                <div class="flex-grow bg-indigo-100 rounded-full h-3 overflow-hidden"><div class="bg-indigo-500 h-full transition-all" :style="{ width: `${Math.min(100, gameHud.xp / gameHud.xpToNext * 100)}%` }"></div></div>
+                <span class="w-20 text-right text-[11px] text-gray-500">{{ gameHud.xp }} / {{ gameHud.xpToNext }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="relative rounded-2xl overflow-hidden border border-slate-700 shadow-xl bg-slate-900">
+            <canvas ref="gameCanvas" width="960" height="540" class="game-canvas"></canvas>
+
+            <div v-if="gameToast" class="absolute top-4 left-1/2 -translate-x-1/2 max-w-[90%] bg-slate-950/90 border border-indigo-400 text-white px-4 py-3 rounded-xl text-xs font-bold shadow-xl text-center">
+              {{ gameToast }}
+            </div>
+
+            <div v-if="gameView === 'paused'" class="absolute inset-0 bg-slate-950/75 flex items-center justify-center p-6">
+              <div class="text-center text-white space-y-4">
+                <i class="fa-solid fa-pause text-5xl text-indigo-300"></i>
+                <h3 class="text-2xl font-black">일시정지</h3>
+                <button @click="toggleGamePause" class="bg-indigo-500 hover:bg-indigo-400 px-6 py-3 rounded-xl font-bold">계속하기</button>
+              </div>
+            </div>
+
+            <div v-if="gameView === 'levelup'" class="absolute inset-0 bg-slate-950/90 flex items-center justify-center p-4 sm:p-8 overflow-y-auto">
+              <div class="w-full max-w-5xl space-y-5">
+                <div class="text-center text-white">
+                  <p class="text-indigo-300 text-xs font-bold tracking-widest">LEVEL UP</p>
+                  <h3 class="text-2xl sm:text-3xl font-black mt-1">정착 능력을 선택하세요</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <button v-for="choice in gameChoices" :key="`${choice.kind}-${choice.id}`" @click="chooseGameUpgrade(choice)" :class="getGameRarityClass(choice.rarity)" class="text-left bg-white border-2 rounded-xl p-5 hover:-translate-y-1 transition-all shadow-xl space-y-3">
+                    <div class="flex items-center justify-between">
+                      <div class="w-12 h-12 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center"><img :src="choice.asset" :alt="choice.name" class="game-item-sprite"></div>
+                      <span :class="choice.rarity === 'rare' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'" class="text-[10px] px-2 py-1 rounded-full font-black">{{ getGameRarityLabel(choice.rarity) }}</span>
+                    </div>
+                    <div>
+                      <h4 class="font-black text-gray-900">{{ choice.name }}</h4>
+                      <p class="text-xs text-indigo-600 font-bold mt-1">Lv.{{ choice.currentLevel }} → Lv.{{ choice.nextLevel }}</p>
+                    </div>
+                    <p class="text-xs text-gray-600 leading-relaxed min-h-[48px]">{{ choice.description }}</p>
+                    <div v-if="choice.place" class="border-t pt-3 text-[11px] text-gray-500">
+                      <i class="fa-solid fa-location-dot text-red-400 mr-1"></i>{{ choice.place.title }}
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-sm mb-3"><i class="fa-solid fa-wand-sparkles text-indigo-600 mr-2"></i>무기</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div v-for="item in gameLoadout.weapons" :key="item.id" class="bg-gray-50 border rounded-lg p-3 text-center">
+                  <img :src="item.asset" :alt="item.name" class="game-loadout-sprite"><p class="text-[11px] font-bold mt-1 truncate">{{ item.name }}</p><p class="text-[10px] text-gray-500">Lv.{{ item.level }} · {{ getGameRarityLabel(item.rarity) }}</p>
+                </div>
+                <div v-for="slot in Math.max(0, 4 - gameLoadout.weapons.length)" :key="`weapon-empty-${slot}`" class="bg-gray-50 border border-dashed rounded-lg p-3 text-center text-gray-300"><i class="fa-solid fa-plus text-lg"></i><p class="text-[10px] mt-1">빈 슬롯</p></div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 class="font-bold text-sm mb-3"><i class="fa-solid fa-shield-heart text-indigo-600 mr-2"></i>패시브</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div v-for="item in gameLoadout.passives" :key="item.id" class="bg-gray-50 border rounded-lg p-3 text-center">
+                  <img :src="item.asset" :alt="item.name" class="game-loadout-sprite"><p class="text-[11px] font-bold mt-1 truncate">{{ item.name }}</p><p class="text-[10px] text-gray-500">Lv.{{ item.level }} · {{ getGameRarityLabel(item.rarity) }}</p>
+                </div>
+                <div v-for="slot in Math.max(0, 4 - gameLoadout.passives.length)" :key="`passive-empty-${slot}`" class="bg-gray-50 border border-dashed rounded-lg p-3 text-center text-gray-300"><i class="fa-solid fa-plus text-lg"></i><p class="text-[10px] mt-1">빈 슬롯</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 결과 화면 -->
+        <div v-else-if="gameView === 'result'" class="space-y-6">
+          <div :class="gameResult.victory ? 'from-indigo-600 to-purple-700' : 'from-slate-700 to-slate-900'" class="bg-gradient-to-r text-white rounded-2xl p-8 sm:p-10 shadow-xl text-center space-y-4">
+            <i :class="gameResult.victory ? 'fa-solid fa-trophy text-yellow-300' : 'fa-solid fa-heart-crack text-slate-300'" class="text-5xl"></i>
+            <p class="text-xs font-black tracking-widest text-white/70">STAGE {{ gameResult.stage }} · {{ gameResult.stageName }}</p>
+            <h2 class="text-3xl font-black">{{ gameResult.victory ? '스테이지 클리어!' : '정착 도전 종료' }}</h2>
+            <p class="text-white/80 text-sm">{{ gameResult.victory ? (gameResult.nextStageUnlocked ? `다음 단계 STAGE ${gameResult.stage + 1}이 해금되었습니다.` : '현재 공개된 모든 스테이지를 클리어했습니다.') : '수집한 지역 정보와 해금 기록은 다음 도전에도 남아 있습니다.' }}</p>
+            <p class="text-4xl font-black">{{ gameResult.score.toLocaleString() }}점</p>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-white p-5 rounded-xl border text-center"><p class="text-xs text-gray-500">랭킹</p><p class="text-xl font-black mt-1 text-amber-600">{{ gameResult.rank ? `${gameResult.rank}위` : '-' }}</p></div>
+            <div class="bg-white p-5 rounded-xl border text-center"><p class="text-xs text-gray-500">생존 시간</p><p class="text-xl font-black mt-1">{{ formatGameTime(gameResult.survivalTime) }}</p></div>
+            <div class="bg-white p-5 rounded-xl border text-center"><p class="text-xs text-gray-500">도달 레벨</p><p class="text-xl font-black mt-1">Lv.{{ gameResult.level }}</p></div>
+            <div class="bg-white p-5 rounded-xl border text-center"><p class="text-xs text-gray-500">처치 수</p><p class="text-xl font-black mt-1">{{ gameResult.kills }}</p></div>
+            <div class="bg-white p-5 rounded-xl border text-center"><p class="text-xs text-gray-500">발견 장소</p><p class="text-xl font-black mt-1">{{ gameResult.places.length }}곳</p></div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 class="font-black text-gray-900"><i class="fa-solid fa-layer-group text-indigo-600 mr-2"></i>최종 장비 구성</h3>
+              <span class="text-xs font-bold text-indigo-600">최고 등급 · {{ getGameResultHighestRarity() }}</span>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <div>
+                <p class="text-xs font-bold text-gray-500 mb-2">무기</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div v-for="item in gameResult.loadout.weapons" :key="`result-weapon-${item.id}`" class="bg-gray-50 border rounded-lg p-3 text-center">
+                    <img :src="item.asset" :alt="item.name" class="game-loadout-sprite">
+                    <p class="text-[11px] font-bold mt-1 truncate">{{ item.name }}</p>
+                    <p class="text-[10px] text-gray-500">Lv.{{ item.level }} · {{ getGameRarityLabel(item.rarity) }}</p>
+                  </div>
+                  <p v-if="gameResult.loadout.weapons.length === 0" class="col-span-full text-xs text-gray-400 py-4 text-center">획득한 무기가 없습니다.</p>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-gray-500 mb-2">패시브</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div v-for="item in gameResult.loadout.passives" :key="`result-passive-${item.id}`" class="bg-gray-50 border rounded-lg p-3 text-center">
+                    <img :src="item.asset" :alt="item.name" class="game-loadout-sprite">
+                    <p class="text-[11px] font-bold mt-1 truncate">{{ item.name }}</p>
+                    <p class="text-[10px] text-gray-500">Lv.{{ item.level }} · {{ getGameRarityLabel(item.rarity) }}</p>
+                  </div>
+                  <p v-if="gameResult.loadout.passives.length === 0" class="col-span-full text-xs text-gray-400 py-4 text-center">획득한 패시브가 없습니다.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-black text-gray-900"><i class="fa-solid fa-map-location-dot text-indigo-600 mr-2"></i>이번 판에서 발견한 구미 장소</h3>
+              <span class="text-[10px] text-gray-400">한국관광공사 TourAPI</span>
+            </div>
+            <div v-if="gameResult.places.length === 0" class="py-10 text-center text-gray-400 text-sm">발견한 장소가 없습니다.</div>
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <article v-for="place in gameResult.places" :key="place.contentid" class="border rounded-xl overflow-hidden bg-white shadow-sm">
+                <img :src="place.image || gamePlaceholderImage" @error="$event.target.src = gamePlaceholderImage" :alt="place.title" class="w-full h-40 object-cover">
+                <div class="p-4 space-y-2">
+                  <div class="flex items-start justify-between gap-2"><h4 class="font-black text-gray-900">{{ place.title }}</h4><span class="shrink-0 text-[10px] bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-bold">{{ place.contentTypeName }}</span></div>
+                  <p class="text-xs text-gray-500 min-h-[32px]"><i class="fa-solid fa-location-dot text-red-400 mr-1"></i>{{ place.addr1 }} {{ place.addr2 }}</p>
+                  <button @click="viewGamePlaceOnMap(place)" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 rounded-lg text-xs font-bold transition-colors"><i class="fa-solid fa-map mr-1"></i>지도에서 보기</button>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap justify-center gap-3">
+            <button v-if="gameResult.victory && gameResult.stage < gameStages.length" @click="startNextGameStage" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold"><i class="fa-solid fa-forward-step mr-2"></i>다음 단계 도전</button>
+            <button @click="startGame" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold"><i class="fa-solid fa-rotate-right mr-2"></i>현재 단계 재도전</button>
+            <button @click="returnToGameIntro" class="bg-white hover:bg-gray-50 text-gray-700 border px-6 py-3 rounded-xl font-bold">시작 화면</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="bg-white border-t border-gray-200 py-6 text-center text-xs text-gray-400">
+      <div class="max-w-7xl mx-auto px-4 space-y-2">
+        <p class="font-medium text-gray-500">지역 정보 공유 커뮤니티 개발팀 (LocalHub)</p>
+        <p>Copyright © 2026 LocalHub. All rights reserved. 본 서비스는 공공누리 라이선스 가이드라인을 준수합니다.</p>
+      </div>
+    </footer>
+
+    <!-- 비밀번호 확인 모달 -->
+    <div v-if="showPwdModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center"><i class="fa-solid fa-key text-indigo-600 mr-2"></i> 익명인증 비밀번호 확인</h3>
+        <p class="text-xs text-gray-500">게시글 작성 시 등록했던 숫자 4자리 비밀번호를 입력해주세요.</p>
+        <div>
+          <input type="password" maxlength="4" v-model="pwdInput" placeholder="비밀번호 4자리" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 text-center tracking-widest text-lg" @keyup.enter="confirmPassword" />
+        </div>
+        <div class="flex justify-end space-x-3 pt-2">
+          <button @click="closePwdModal" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-semibold transition-colors">취소</button>
+          <button @click="confirmPassword" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors shadow-sm">인증하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OpenAI API 설정 모달 -->
+    <div v-if="showKeyModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center"><i class="fa-solid fa-robot text-indigo-600 mr-2"></i> OpenAI API Key 설정</h3>
+        <p class="text-xs text-gray-500">본 서비스는 환경변수 연동 및 OpenAI 모델을 직접 호출할 수 있는 능력을 지원합니다. API Key를 설정하시면 챗봇이 실제 인공지능 모드로 답변합니다. (미설정 시 자체 장소 시뮬레이터 동작)</p>
+        <div>
+          <input type="password" v-model="tempApiKey" placeholder="sk-..." class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-indigo-500 focus:border-indigo-500 text-center" />
+        </div>
+        <div class="flex justify-end space-x-3 pt-2">
+          <button @click="showKeyModal = false" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-semibold transition-colors">닫기</button>
+          <button @click="saveApiKey" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors shadow-sm">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 챗봇 플로팅 위젯 -->
+    <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+      
+      <!-- 챗봇 창 -->
+      <div v-if="showChat" class="bg-white rounded-xl shadow-2xl border border-gray-200 w-80 sm:w-96 max-h-[500px] flex flex-col overflow-hidden mb-4 animate-slide-up">
+        <!-- 챗봇 헤더 -->
+        <div class="bg-indigo-600 text-white p-4 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-robot text-lg"></i>
+            <div>
+              <h4 class="font-bold text-sm">LocalHub 경북AI 비서</h4>
+              <span class="text-[10px] text-indigo-200">구미/경북 스마트 라이프 챗봇</span>
+            </div>
+          </div>
+          <button @click="showChat = false" class="text-indigo-200 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        
+        <!-- 챗봇 대화방 -->
+        <div class="flex-grow p-4 overflow-y-auto space-y-3 min-h-[250px] max-h-[350px] bg-gray-50" id="chat-box">
+          <div v-for="msg in chatMessages" :key="msg.id" :class="msg.sender === 'bot' ? 'justify-start' : 'justify-end'" class="flex">
+            <div :class="msg.sender === 'bot' ? 'bg-white text-gray-800 border' : 'bg-indigo-600 text-white'" class="max-w-[80%] rounded-lg p-3 text-xs shadow-sm leading-relaxed whitespace-pre-wrap">
+              {{ msg.text }}
+            </div>
+          </div>
+        </div>
+
+        <!-- 챗봇 추천 질문 키워드 -->
+        <div class="px-4 py-2 bg-gray-100 flex flex-wrap gap-1.5 border-t">
+          <button v-for="kw in chatKeywords" :key="kw" @click="sendKeyword(kw)" class="bg-white hover:bg-indigo-50 text-[10px] text-gray-600 border border-gray-200 px-2.5 py-1 rounded-full transition-colors font-medium">
+            {{ kw }}
+          </button>
+        </div>
+
+        <!-- 챗봇 인풋 -->
+        <div class="p-3 border-t flex items-center space-x-2 bg-white">
+          <input type="text" v-model="chatInput" placeholder="무엇이든 물어보세요..." class="flex-grow border rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" @keyup.enter="sendChatMessage" />
+          <button @click="sendChatMessage" class="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-lg transition-all flex items-center justify-center w-8 h-8"><i class="fa-solid fa-paper-plane text-xs"></i></button>
+        </div>
+      </div>
+
+      <!-- 플로팅 버튼 -->
+      <button @click="toggleChat" :class="showChat ? 'bg-indigo-700' : 'bg-indigo-600 hover:bg-indigo-700'" class="w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl transition-all transform hover:scale-105">
+        <i v-if="!showChat" class="fa-solid fa-comments text-2xl"></i>
+        <i v-else class="fa-solid fa-minus text-2xl"></i>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- 기능 모듈 -->
+  <script src="assets/js/core/namespace.js"></script>
+  <script src="assets/js/data/map-data.js"></script>
+  <script src="assets/js/features/i18n.js"></script>
+  <script src="assets/js/features/weather.js"></script>
+  <script src="assets/js/features/map.js"></script>
+  <script src="assets/js/features/chatbot.js"></script>
+
+  <script>
+    const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } = Vue;
+
+    class LocalHubSurvivalGame {
+      constructor(canvas, options) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.ctx.imageSmoothingEnabled = false;
+        this.width = canvas.width;
+        this.height = canvas.height;
+        this.data = options.data;
+        this.images = options.images || {};
+        this.duration = options.duration;
+        this.stage = options.stage;
+        this.callbacks = options.callbacks;
+        this.keys = new Set();
+        this.weapons = new Map();
+        this.passives = new Map();
+        this.enemies = [];
+        this.projectiles = [];
+        this.enemyProjectiles = [];
+        this.areaEffects = [];
+        this.expOrbs = [];
+        this.treasureChests = [];
+        this.obstacles = [];
+        this.decorations = [];
+        this.status = 'idle';
+        this.rafId = null;
+        this.lastTime = 0;
+        this.hudTimer = 0;
+        this.spawnTimer = 0;
+        this.elapsed = 0;
+        this.kills = 0;
+        this.score = 0;
+        this.bossSpawned = false;
+        this.finished = false;
+        this.nextMilestone = this.duration / 5;
+        this.boundKeyDown = (event) => this.handleKeyDown(event);
+        this.boundKeyUp = (event) => this.handleKeyUp(event);
+      }
+
+      start() {
+        this.reset();
+        this.status = 'running';
+        this.weapons.set('hoeStrike', { id: 'hoeStrike', level: 1, rarity: 'common', cooldown: 0 });
+        window.addEventListener('keydown', this.boundKeyDown, { passive: false });
+        window.addEventListener('keyup', this.boundKeyUp, { passive: false });
+        this.lastTime = performance.now();
+        this.rafId = requestAnimationFrame((time) => this.frame(time));
+      }
+
+      reset() {
+        this.player = {
+          x: this.width / 2,
+          y: this.height / 2,
+          radius: 15,
+          baseSpeed: 185,
+          speed: 185,
+          hp: 100,
+          maxHp: 100,
+          defense: 0,
+          attackMultiplier: 1.5,
+          magnet: 85,
+          level: 1,
+          xp: 0,
+          xpToNext: 8,
+          invulnerable: 0,
+          direction: 'down',
+          moving: false,
+          walkClock: 0,
+          attackTimer: 0,
+          attackDuration: 0.3,
+          actionType: 'hoe'
+        };
+        this.enemies = [];
+        this.projectiles = [];
+        this.enemyProjectiles = [];
+        this.areaEffects = [];
+        this.expOrbs = [];
+        this.treasureChests = [];
+        this.obstacles = [];
+        this.weapons.clear();
+        this.passives.clear();
+        this.spawnTimer = 0;
+        this.elapsed = 0;
+        this.kills = 0;
+        this.score = 0;
+        this.bossSpawned = false;
+        this.finished = false;
+        this.nextMilestone = this.duration / 5;
+        this.createDecorations();
+      }
+
+      createDecorations() {
+        const frames = [
+          { image: 'grassObjects', sx: 0, sy: 0, sw: 32, sh: 32, size: 58 },
+          { image: 'grassObjects', sx: 112, sy: 16, sw: 32, sh: 32, size: 46 },
+          { image: 'plants', sx: 32, sy: 0, sw: 16, sh: 16, size: 32 },
+          { image: 'plants', sx: 64, sy: 16, sw: 16, sh: 16, size: 32 }
+        ];
+        this.decorations = Array.from({ length: 26 }, (_, index) => {
+          const frame = frames[index % frames.length];
+          return {
+            ...frame,
+            x: 24 + Math.random() * (this.width - 48),
+            y: 30 + Math.random() * (this.height - 60),
+            alpha: 0.34 + Math.random() * 0.22
+          };
+        });
+      }
+
+      frame(time) {
+        const delta = Math.min(0.033, Math.max(0, (time - this.lastTime) / 1000));
+        this.lastTime = time;
+        if (this.status === 'running') this.update(delta);
+        this.render();
+        if (!this.finished) this.rafId = requestAnimationFrame((nextTime) => this.frame(nextTime));
+      }
+
+      update(delta) {
+        this.elapsed += delta;
+        this.player.invulnerable = Math.max(0, this.player.invulnerable - delta);
+        this.player.attackTimer = Math.max(0, this.player.attackTimer - delta);
+        this.updatePlayer(delta);
+        this.updateSpawning(delta);
+        this.updateWeapons(delta);
+        this.updateProjectiles(delta);
+        this.updateEnemies(delta);
+        this.updateEnemyProjectiles(delta);
+        this.updateAreaEffects(delta);
+        this.updateExpOrbs(delta);
+        this.updateTreasureChests();
+        this.updateObstacles();
+        this.checkLevelUp();
+
+        if (this.elapsed >= this.nextMilestone && this.nextMilestone < this.duration) {
+          const milestoneIndex = Math.round(this.nextMilestone / (this.duration / 5));
+          this.nextMilestone += this.duration / 5;
+          this.spawnTreasureChest();
+          this.callbacks.onMilestone?.(milestoneIndex);
+        }
+
+        if (this.elapsed >= this.duration && !this.bossSpawned) this.spawnBoss();
+
+        this.score = Math.floor((this.kills * 100 + this.player.level * 300 + this.elapsed * 10) * this.stage.scoreMultiplier);
+        this.hudTimer -= delta;
+        if (this.hudTimer <= 0) {
+          this.hudTimer = 0.1;
+          this.emitHud();
+        }
+      }
+
+      updatePlayer(delta) {
+        let dx = 0;
+        let dy = 0;
+        if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) dy -= 1;
+        if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) dy += 1;
+        if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) dx -= 1;
+        if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) dx += 1;
+
+        this.player.moving = dx !== 0 || dy !== 0;
+        if (this.player.moving) {
+          const length = Math.hypot(dx, dy);
+          this.player.x += (dx / length) * this.player.speed * delta;
+          this.player.y += (dy / length) * this.player.speed * delta;
+          this.player.walkClock += delta * 8;
+          if (Math.abs(dx) > Math.abs(dy)) this.player.direction = dx > 0 ? 'right' : 'left';
+          else this.player.direction = dy > 0 ? 'down' : 'up';
+        }
+
+        this.player.x = Math.max(this.player.radius, Math.min(this.width - this.player.radius, this.player.x));
+        this.player.y = Math.max(this.player.radius, Math.min(this.height - this.player.radius, this.player.y));
+
+        for (const obstacle of this.obstacles) {
+          this.resolveCircleObstacle(this.player, obstacle);
+        }
+      }
+
+      updateSpawning(delta) {
+        const enemyLimit = 125 + this.stage.id * 12;
+        if (this.bossSpawned || this.enemies.length > enemyLimit) return;
+        this.spawnTimer -= delta;
+        if (this.spawnTimer > 0) return;
+
+        const progress = Math.min(1, this.elapsed / this.duration);
+        const spawnInterval = Math.max(0.32, (1.2 - progress * 0.56) / this.stage.spawnRate);
+        const spawnCount = 1 + Math.floor(progress * 1.25 + this.stage.spawnBonus * 0.65);
+        for (let index = 0; index < spawnCount; index++) this.spawnEnemy(this.pickEnemyType(progress));
+        this.spawnTimer = spawnInterval;
+      }
+
+      pickEnemyType(progress) {
+        const roll = Math.random();
+        if (progress > 0.35 && roll < 0.34) return 'hen';
+        return 'chicken';
+      }
+
+      getSpawnPoint(inside = false) {
+        if (inside) {
+          return {
+            x: 70 + Math.random() * (this.width - 140),
+            y: 70 + Math.random() * (this.height - 140)
+          };
+        }
+        const margin = 36;
+        const side = Math.floor(Math.random() * 4);
+        if (side === 0) return { x: Math.random() * this.width, y: -margin };
+        if (side === 1) return { x: this.width + margin, y: Math.random() * this.height };
+        if (side === 2) return { x: Math.random() * this.width, y: this.height + margin };
+        return { x: -margin, y: Math.random() * this.height };
+      }
+
+      spawnEnemy(typeId, point = null) {
+        const definition = this.data.enemies[typeId];
+        const spawn = point || this.getSpawnPoint(typeId === 'nest');
+        const difficulty = 1 + (this.elapsed / this.duration) * 1.2;
+        const enemyHp = definition.hp * difficulty * this.stage.hpMultiplier;
+        this.enemies.push({
+          id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+          typeId,
+          x: spawn.x,
+          y: spawn.y,
+          radius: definition.radius,
+          speed: definition.speed * (1 + difficulty * 0.08) * this.stage.speedMultiplier,
+          hp: enemyHp,
+          maxHp: enemyHp,
+          damage: definition.damage * (1 + difficulty * 0.12) * this.stage.damageMultiplier,
+          exp: definition.exp,
+          contactCooldown: 0,
+          orbitCooldown: 0,
+          summonCooldown: Infinity,
+          boss: false,
+          stationary: Boolean(definition.stationary),
+          animationOffset: Math.random() * 10
+        });
+      }
+
+      spawnBoss() {
+        const definition = this.data.enemies.boss;
+        const bossHp = definition.hp * this.stage.bossMultiplier;
+        this.bossSpawned = true;
+        this.enemies.push({
+          id: 'final-boss',
+          typeId: 'boss',
+          x: this.width / 2,
+          y: -70,
+          radius: definition.radius,
+          speed: definition.speed * this.stage.speedMultiplier,
+          hp: bossHp,
+          maxHp: bossHp,
+          damage: definition.damage * this.stage.damageMultiplier,
+          exp: definition.exp,
+          contactCooldown: 0,
+          orbitCooldown: 0,
+          summonCooldown: 6.5,
+          nestSummonCooldown: this.stage.id === 2 ? 10.5 : Infinity,
+          fenceSummonCooldown: this.stage.id === 3 ? 5.5 : Infinity,
+          boss: true,
+          stationary: false,
+          animationOffset: 0
+        });
+        this.callbacks.onBossSpawn?.();
+      }
+
+      updateWeapons(delta) {
+        for (const weapon of this.weapons.values()) {
+          weapon.cooldown -= delta;
+          if (weapon.id === 'hoeStrike' && weapon.cooldown <= 0) this.fireHoeStrike(weapon);
+          if (weapon.id === 'furnitureDrop' && weapon.cooldown <= 0) this.fireFurnitureDrop(weapon);
+        }
+        this.updatePickaxeOrbit(delta);
+      }
+
+      setPlayerAttack(actionType, target) {
+        this.player.actionType = actionType;
+        this.player.attackTimer = this.player.attackDuration;
+        if (!target) return;
+        const dx = target.x - this.player.x;
+        const dy = target.y - this.player.y;
+        if (Math.abs(dx) > Math.abs(dy)) this.player.direction = dx > 0 ? 'right' : 'left';
+        else this.player.direction = dy > 0 ? 'down' : 'up';
+      }
+
+      fireHoeStrike(weapon) {
+        const target = this.findNearestEnemy();
+        if (!target) return;
+        const rarity = this.getRarityMultiplier(weapon.rarity);
+        const baseAngle = Math.atan2(target.y - this.player.y, target.x - this.player.x);
+        const projectileCount = weapon.level >= 5 ? 3 : weapon.level >= 3 ? 2 : 1;
+        this.setPlayerAttack('hoe', target);
+
+        for (let index = 0; index < projectileCount; index++) {
+          const spread = projectileCount === 1 ? 0 : (index - (projectileCount - 1) / 2) * 0.16;
+          const angle = baseAngle + spread;
+          this.projectiles.push({
+            x: this.player.x,
+            y: this.player.y,
+            vx: Math.cos(angle) * 430,
+            vy: Math.sin(angle) * 430,
+            radius: 7,
+            damage: (14 + weapon.level * 7) * rarity * this.player.attackMultiplier,
+            life: 1.45,
+            pierce: weapon.level >= 4 ? 1 : 0,
+            hitIds: new Set(),
+            sprite: 'basicTools',
+            frame: { sx: 16, sy: 0, sw: 16, sh: 16 }
+          });
+        }
+        weapon.cooldown = Math.max(0.3, (0.92 - weapon.level * 0.09) / rarity);
+      }
+
+      updatePickaxeOrbit(delta) {
+        const weapon = this.weapons.get('pickaxeOrbit');
+        if (!weapon) return;
+        weapon.angle = (weapon.angle || 0) + delta * (1.85 + weapon.level * 0.12);
+        const rarity = this.getRarityMultiplier(weapon.rarity);
+        const count = weapon.level >= 4 ? 3 : weapon.level >= 2 ? 2 : 1;
+        const distance = 62 + weapon.level * 6;
+
+        for (const enemy of this.enemies) {
+          enemy.orbitCooldown = Math.max(0, enemy.orbitCooldown - delta);
+          if (enemy.orbitCooldown > 0) continue;
+          for (let index = 0; index < count; index++) {
+            const angle = weapon.angle + Math.PI * 2 * index / count;
+            const toolX = this.player.x + Math.cos(angle) * distance;
+            const toolY = this.player.y + Math.sin(angle) * distance;
+            if (Math.hypot(enemy.x - toolX, enemy.y - toolY) < enemy.radius + 12) {
+              this.damageEnemy(enemy, (9 + weapon.level * 5) * rarity * this.player.attackMultiplier);
+              enemy.orbitCooldown = 0.28;
+              this.setPlayerAttack('pickaxe', enemy);
+              break;
+            }
+          }
+        }
+      }
+
+      fireFurnitureDrop(weapon) {
+        const target = this.findNearestEnemy();
+        if (!target) return;
+        const rarity = this.getRarityMultiplier(weapon.rarity);
+        const radius = 52 + weapon.level * 12;
+        const damage = (25 + weapon.level * 15) * rarity * this.player.attackMultiplier;
+        this.setPlayerAttack('furniture', target);
+        this.areaEffects.push({
+          x: target.x,
+          y: target.y,
+          radius,
+          life: 0.5,
+          maxLife: 0.5,
+          sprite: 'furniture'
+        });
+        for (const enemy of this.enemies) {
+          if (Math.hypot(enemy.x - target.x, enemy.y - target.y) <= radius + enemy.radius) this.damageEnemy(enemy, damage);
+        }
+        weapon.cooldown = Math.max(1.15, (3.4 - weapon.level * 0.38) / rarity);
+      }
+
+      updateProjectiles(delta) {
+        for (const projectile of this.projectiles) {
+          projectile.x += projectile.vx * delta;
+          projectile.y += projectile.vy * delta;
+          projectile.life -= delta;
+          for (const enemy of this.enemies) {
+            if (enemy.hp <= 0 || projectile.life <= 0 || projectile.hitIds.has(enemy.id)) continue;
+            if (Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y) < enemy.radius + projectile.radius) {
+              projectile.hitIds.add(enemy.id);
+              this.damageEnemy(enemy, projectile.damage);
+              if (projectile.pierce > 0) projectile.pierce -= 1;
+              else projectile.life = 0;
+            }
+          }
+        }
+        this.projectiles = this.projectiles.filter((projectile) => projectile.life > 0 && projectile.x > -40 && projectile.x < this.width + 40 && projectile.y > -40 && projectile.y < this.height + 40);
+      }
+
+      updateEnemies(delta) {
+        for (const enemy of this.enemies) {
+          if (enemy.hp <= 0) continue;
+          enemy.contactCooldown = Math.max(0, enemy.contactCooldown - delta);
+          enemy.summonCooldown = Math.max(0, enemy.summonCooldown - delta);
+          enemy.nestSummonCooldown = Math.max(0, (enemy.nestSummonCooldown ?? Infinity) - delta);
+          enemy.fenceSummonCooldown = Math.max(0, (enemy.fenceSummonCooldown ?? Infinity) - delta);
+
+          if (!enemy.stationary) {
+            const angle = Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x);
+            enemy.x += Math.cos(angle) * enemy.speed * delta;
+            enemy.y += Math.sin(angle) * enemy.speed * delta;
+            for (const obstacle of this.obstacles) {
+              this.resolveCircleObstacle(enemy, obstacle);
+            }
+          }
+
+          if (enemy.boss && enemy.summonCooldown <= 0) {
+            this.launchBossEggs(enemy);
+            // 보스의 기본 알 소환은 이전보다 완만하게 유지한다.
+            enemy.summonCooldown = Math.max(6, 7.5 - this.stage.id * 0.25);
+          }
+
+          // 2라운드 보스는 둥지를 천천히 추가 소환한다.
+          if (enemy.boss && this.stage.id === 2 && enemy.nestSummonCooldown <= 0) {
+            this.spawnBossNest(enemy);
+            enemy.nestSummonCooldown = 11.5;
+          }
+
+          // 3라운드 보스는 잠시 길을 막는 울타리를 소환한다.
+          if (enemy.boss && this.stage.id === 3 && enemy.fenceSummonCooldown <= 0) {
+            this.spawnFenceBarrier(enemy);
+            enemy.fenceSummonCooldown = 6.25;
+          }
+
+          const distance = Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y);
+          if (distance < enemy.radius + this.player.radius && enemy.contactCooldown <= 0 && this.player.invulnerable <= 0) {
+            this.damagePlayer(enemy.damage);
+            enemy.contactCooldown = 0.72;
+            if (this.finished) return;
+          }
+        }
+        this.enemies = this.enemies.filter((enemy) => enemy.hp > 0);
+      }
+
+      launchEgg(enemy, hatchOnExpire) {
+        const angle = Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x);
+        const speed = 145 + this.stage.id * 10;
+        this.enemyProjectiles.push({
+          x: enemy.x,
+          y: enemy.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: 8,
+          damage: enemy.damage * 0.75,
+          life: 3.2,
+          hatchOnExpire,
+          type: 'egg'
+        });
+      }
+
+      launchBossEggs(enemy) {
+        const angle = Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x);
+        this.enemyProjectiles.push({
+          x: enemy.x,
+          y: enemy.y,
+          vx: Math.cos(angle) * 185,
+          vy: Math.sin(angle) * 185,
+          radius: 9,
+          damage: enemy.damage * 0.62,
+          life: 4,
+          hatchOnExpire: true,
+          type: 'egg'
+        });
+      }
+
+      spawnBossNest(enemy) {
+        const activeNests = this.enemies.filter((target) => target.typeId === 'nest').length;
+        if (activeNests >= 2) return;
+        const angle = Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x) + (Math.random() - 0.5) * 0.8;
+        const distance = 120 + Math.random() * 40;
+        const point = {
+          x: Math.max(56, Math.min(this.width - 56, enemy.x + Math.cos(angle) * distance)),
+          y: Math.max(56, Math.min(this.height - 56, enemy.y + Math.sin(angle) * distance))
+        };
+        this.spawnEnemy('nest', point);
+        this.callbacks.onBossAbility?.('황소 농장주가 부화 둥지를 소환했습니다!');
+      }
+
+      spawnFenceBarrier(enemy) {
+        const dx = this.player.x - enemy.x;
+        const dy = this.player.y - enemy.y;
+        const length = Math.max(1, Math.hypot(dx, dy));
+        const normalX = -dy / length;
+        const normalY = dx / length;
+        const centerX = Math.max(90, Math.min(this.width - 90, (enemy.x + this.player.x) / 2));
+        const centerY = Math.max(90, Math.min(this.height - 90, (enemy.y + this.player.y) / 2));
+        const horizontal = Math.abs(normalX) >= Math.abs(normalY);
+        const segmentSize = 44;
+        const barrier = {
+          x: centerX,
+          y: centerY,
+          width: horizontal ? segmentSize * 3 : 34,
+          height: horizontal ? 34 : segmentSize * 3,
+          orientation: horizontal ? 'horizontal' : 'vertical',
+          segmentSize,
+          expiresAt: this.elapsed + 5,
+          frameIndex: Math.floor(Math.random() * 3)
+        };
+        this.obstacles.push(barrier);
+        this.callbacks.onBossAbility?.('황소 농장주가 울타리로 길을 막았습니다!');
+      }
+
+      updateEnemyProjectiles(delta) {
+        for (const projectile of this.enemyProjectiles) {
+          projectile.x += projectile.vx * delta;
+          projectile.y += projectile.vy * delta;
+          projectile.life -= delta;
+          const distance = Math.hypot(projectile.x - this.player.x, projectile.y - this.player.y);
+          if (!projectile.hit && distance < projectile.radius + this.player.radius && this.player.invulnerable <= 0) {
+            projectile.hit = true;
+            projectile.life = 0;
+            this.damagePlayer(projectile.damage);
+          }
+          if (projectile.life <= 0 && projectile.hatchOnExpire && !projectile.hit && !projectile.hatched) {
+            projectile.hatched = true;
+            this.spawnEnemy('chicken', {
+              x: Math.max(20, Math.min(this.width - 20, projectile.x)),
+              y: Math.max(20, Math.min(this.height - 20, projectile.y))
+            });
+          }
+        }
+        this.enemyProjectiles = this.enemyProjectiles.filter((projectile) => projectile.life > 0);
+      }
+
+      updateObstacles() {
+        this.obstacles = this.obstacles.filter((obstacle) => obstacle.expiresAt > this.elapsed);
+      }
+
+      resolveCircleObstacle(target, obstacle) {
+        const halfWidth = obstacle.width / 2;
+        const halfHeight = obstacle.height / 2;
+        const nearestX = Math.max(obstacle.x - halfWidth, Math.min(target.x, obstacle.x + halfWidth));
+        const nearestY = Math.max(obstacle.y - halfHeight, Math.min(target.y, obstacle.y + halfHeight));
+        let dx = target.x - nearestX;
+        let dy = target.y - nearestY;
+        const distance = Math.hypot(dx, dy);
+        if (distance >= target.radius) return false;
+
+        if (distance > 0.001) {
+          const overlap = target.radius - distance;
+          target.x += (dx / distance) * overlap;
+          target.y += (dy / distance) * overlap;
+        } else {
+          const left = Math.abs(target.x - (obstacle.x - halfWidth));
+          const right = Math.abs(obstacle.x + halfWidth - target.x);
+          const top = Math.abs(target.y - (obstacle.y - halfHeight));
+          const bottom = Math.abs(obstacle.y + halfHeight - target.y);
+          const minAxis = Math.min(left, right, top, bottom);
+          if (minAxis === left) target.x = obstacle.x - halfWidth - target.radius;
+          else if (minAxis === right) target.x = obstacle.x + halfWidth + target.radius;
+          else if (minAxis === top) target.y = obstacle.y - halfHeight - target.radius;
+          else target.y = obstacle.y + halfHeight + target.radius;
+        }
+
+        target.x = Math.max(target.radius, Math.min(this.width - target.radius, target.x));
+        target.y = Math.max(target.radius, Math.min(this.height - target.radius, target.y));
+        return true;
+      }
+
+      damagePlayer(rawDamage) {
+        if (this.player.invulnerable > 0 || this.finished) return;
+        const damage = Math.max(1, rawDamage - this.player.defense);
+        this.player.hp -= damage;
+        this.player.invulnerable = 0.44;
+        if (this.player.hp <= 0) {
+          this.player.hp = 0;
+          this.finish(false);
+        }
+      }
+
+      updateAreaEffects(delta) {
+        for (const effect of this.areaEffects) effect.life -= delta;
+        this.areaEffects = this.areaEffects.filter((effect) => effect.life > 0);
+      }
+
+      updateExpOrbs(delta) {
+        for (const orb of this.expOrbs) {
+          const dx = this.player.x - orb.x;
+          const dy = this.player.y - orb.y;
+          const distance = Math.hypot(dx, dy);
+          if (distance < this.player.magnet && distance > 0) {
+            const speed = 140 + (this.player.magnet - distance) * 4;
+            orb.x += dx / distance * speed * delta;
+            orb.y += dy / distance * speed * delta;
+          }
+          if (distance < this.player.radius + orb.radius + 4) {
+            orb.collected = true;
+            this.player.xp += orb.value;
+          }
+        }
+        this.expOrbs = this.expOrbs.filter((orb) => !orb.collected);
+      }
+
+      spawnTreasureChest() {
+        const point = this.getSpawnPoint(true);
+        this.treasureChests.push({
+          x: point.x,
+          y: point.y,
+          radius: 18,
+          collected: false,
+          openedAt: 0
+        });
+      }
+
+      updateTreasureChests() {
+        for (const chest of this.treasureChests) {
+          if (chest.collected) continue;
+          if (Math.hypot(chest.x - this.player.x, chest.y - this.player.y) < chest.radius + this.player.radius + 4) {
+            chest.collected = true;
+            chest.openedAt = this.elapsed;
+            this.player.xp += 5;
+            this.player.hp = Math.min(this.player.maxHp, this.player.hp + 12);
+            this.callbacks.onChestOpen?.();
+          }
+        }
+        this.treasureChests = this.treasureChests.filter((chest) => !chest.collected || this.elapsed - chest.openedAt < 0.65);
+      }
+
+      checkLevelUp() {
+        if (this.player.xp < this.player.xpToNext || this.status !== 'running') return;
+        this.player.xp -= this.player.xpToNext;
+        this.player.level += 1;
+        this.player.xpToNext = Math.floor(8 + this.player.level * 5 + Math.pow(this.player.level, 1.25));
+        this.status = 'levelup';
+        this.emitHud();
+        this.callbacks.onLevelUp?.();
+      }
+
+      damageEnemy(enemy, damage) {
+        if (enemy.hp <= 0) return;
+        enemy.hp -= damage;
+        if (enemy.hp > 0) return;
+        this.kills += 1;
+        this.expOrbs.push({
+          x: enemy.x,
+          y: enemy.y,
+          radius: enemy.boss ? 10 : 6,
+          value: enemy.exp,
+          collected: false
+        });
+        if (enemy.boss) this.finish(true);
+      }
+
+      applyUpgrade(choice) {
+        if (choice.kind === 'recovery') {
+          this.player.hp = Math.min(this.player.maxHp, this.player.hp + 35);
+          return;
+        }
+        const collection = choice.kind === 'weapon' ? this.weapons : this.passives;
+        const owned = collection.get(choice.id);
+        if (owned) owned.level = Math.min(5, owned.level + 1);
+        else collection.set(choice.id, { id: choice.id, level: 1, rarity: choice.rarity, cooldown: 0, angle: 0 });
+        this.recalculatePlayerStats();
+      }
+
+      recalculatePlayerStats() {
+        const previousMaxHp = this.player.maxHp;
+        const seedBag = this.passives.get('seedBag');
+        const forestCharm = this.passives.get('forestCharm');
+        const settlementChest = this.passives.get('settlementChest');
+        const seedMultiplier = seedBag ? this.getRarityMultiplier(seedBag.rarity) : 1;
+        const forestMultiplier = forestCharm ? this.getRarityMultiplier(forestCharm.rarity) : 1;
+        const chestMultiplier = settlementChest ? this.getRarityMultiplier(settlementChest.rarity) : 1;
+        this.player.magnet = 85 + (seedBag ? seedBag.level * 34 * seedMultiplier : 0);
+        this.player.speed = this.player.baseSpeed * (1 + (forestCharm ? forestCharm.level * 0.09 * forestMultiplier : 0));
+        this.player.maxHp = 100 + (settlementChest ? settlementChest.level * 24 * chestMultiplier : 0);
+        if (this.player.maxHp > previousMaxHp) this.player.hp += this.player.maxHp - previousMaxHp;
+        this.player.hp = Math.min(this.player.hp, this.player.maxHp);
+      }
+
+      getLoadout() {
+        const mapItem = (item, kind) => {
+          const definition = this.data[kind === 'weapon' ? 'weapons' : 'passives'][item.id];
+          return { ...item, name: definition.name, asset: definition.asset, kind };
+        };
+        return {
+          weapons: [...this.weapons.values()].map((item) => mapItem(item, 'weapon')),
+          passives: [...this.passives.values()].map((item) => mapItem(item, 'passive'))
+        };
+      }
+
+      getOwnedLevel(kind, id) {
+        const collection = kind === 'weapon' ? this.weapons : this.passives;
+        return collection.get(id)?.level || 0;
+      }
+
+      getOwnedRarity(kind, id) {
+        const collection = kind === 'weapon' ? this.weapons : this.passives;
+        return collection.get(id)?.rarity || null;
+      }
+
+      getSlotCount(kind) {
+        return kind === 'weapon' ? this.weapons.size : this.passives.size;
+      }
+
+      getRarityMultiplier(rarity) {
+        return rarity === 'rare' ? 1.25 : 1;
+      }
+
+      findNearestEnemy() {
+        let nearest = null;
+        let nearestDistance = Infinity;
+        for (const enemy of this.enemies) {
+          const distance = Math.hypot(enemy.x - this.player.x, enemy.y - this.player.y);
+          if (distance < nearestDistance) {
+            nearest = enemy;
+            nearestDistance = distance;
+          }
+        }
+        return nearest;
+      }
+
+      pause() {
+        if (this.status === 'running') this.status = 'paused';
+      }
+
+      resume() {
+        if (this.status === 'paused' || this.status === 'levelup') {
+          this.status = 'running';
+          this.lastTime = performance.now();
+        }
+      }
+
+      finish(victory) {
+        if (this.finished) return;
+        this.finished = true;
+        this.status = 'ended';
+        if (victory) this.score += Math.floor(15000 * this.stage.scoreMultiplier);
+        this.emitHud();
+        this.render();
+        this.callbacks.onEnd?.({
+          victory,
+          score: Math.floor(this.score),
+          survivalTime: Math.floor(this.elapsed),
+          level: this.player.level,
+          kills: this.kills,
+          stage: this.stage.id,
+          stageName: this.stage.name,
+          loadout: this.getLoadout()
+        });
+      }
+
+      emitHud() {
+        this.callbacks.onHud?.({
+          hp: this.player.hp,
+          maxHp: this.player.maxHp,
+          level: this.player.level,
+          xp: Math.floor(this.player.xp),
+          xpToNext: this.player.xpToNext,
+          remainingTime: Math.max(0, Math.ceil(this.duration - this.elapsed)),
+          kills: this.kills,
+          score: Math.floor(this.score),
+          stage: this.stage.id,
+          stageName: this.stage.name
+        });
+      }
+
+      handleKeyDown(event) {
+        const movementKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+        if (movementKeys.includes(event.code)) {
+          event.preventDefault();
+          this.keys.add(event.code);
+        }
+      }
+
+      handleKeyUp(event) {
+        this.keys.delete(event.code);
+      }
+
+      destroy() {
+        if (this.rafId) cancelAnimationFrame(this.rafId);
+        window.removeEventListener('keydown', this.boundKeyDown);
+        window.removeEventListener('keyup', this.boundKeyUp);
+        this.finished = true;
+      }
+
+      drawSprite(imageKey, frame, x, y, width, height, options = {}) {
+        const image = this.images[imageKey];
+        if (!image?.complete || !image.naturalWidth) return false;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalAlpha = options.alpha ?? 1;
+        ctx.translate(x, y);
+        if (options.rotation) ctx.rotate(options.rotation);
+        if (options.flipX) ctx.scale(-1, 1);
+        ctx.drawImage(
+          image,
+          frame.sx,
+          frame.sy,
+          frame.sw,
+          frame.sh,
+          -width / 2,
+          -height / 2,
+          width,
+          height
+        );
+        ctx.restore();
+        return true;
+      }
+
+      render() {
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, this.width, this.height);
+        this.drawBackground();
+
+        for (const effect of this.areaEffects) this.drawAreaEffect(effect);
+        for (const chest of this.treasureChests) this.drawTreasureChest(chest);
+        for (const obstacle of this.obstacles) this.drawObstacle(obstacle);
+        for (const orb of this.expOrbs) this.drawExpOrb(orb);
+        for (const projectile of this.projectiles) this.drawPlayerProjectile(projectile);
+        for (const projectile of this.enemyProjectiles) this.drawEnemyProjectile(projectile);
+        for (const enemy of this.enemies) this.drawEnemy(enemy);
+        this.drawPickaxeOrbit();
+        this.drawPlayer();
+        this.drawStageLabel();
+        this.drawBossHealth();
+      }
+
+      drawBackground() {
+        const ctx = this.ctx;
+        const tileImage = this.images.hills;
+        if (tileImage?.complete && tileImage.naturalWidth) {
+          for (let y = 0; y < this.height; y += 48) {
+            for (let x = 0; x < this.width; x += 48) {
+              const variant = ((x / 48) + (y / 48)) % 4;
+              ctx.drawImage(tileImage, variant * 16, 80, 16, 16, x, y, 48, 48);
+            }
+          }
+          ctx.fillStyle = this.stage.overlay || 'rgba(15, 23, 42, 0.05)';
+          ctx.fillRect(0, 0, this.width, this.height);
+        } else {
+          ctx.fillStyle = this.stage.background;
+          ctx.fillRect(0, 0, this.width, this.height);
+        }
+
+        for (const decoration of this.decorations) {
+          this.drawSprite(
+            decoration.image,
+            decoration,
+            decoration.x,
+            decoration.y,
+            decoration.size,
+            decoration.size,
+            { alpha: decoration.alpha }
+          );
+        }
+      }
+
+      drawAreaEffect(effect) {
+        const alpha = Math.max(0, effect.life / effect.maxLife);
+        const ctx = this.ctx;
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, effect.radius * (1.12 - alpha * 0.12), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(251, 191, 36, ${alpha * 0.2})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(146, 64, 14, ${alpha * 0.65})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        this.drawSprite('furniture', { sx: 64, sy: 32, sw: 16, sh: 32 }, effect.x, effect.y - (1 - alpha) * 20, 42, 84, { alpha });
+      }
+
+      drawExpOrb(orb) {
+        if (!this.drawSprite('eggItem', { sx: 0, sy: 0, sw: 16, sh: 16 }, orb.x, orb.y, orb.radius * 3.6, orb.radius * 3.6)) {
+          const ctx = this.ctx;
+          ctx.beginPath();
+          ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#fef3c7';
+          ctx.fill();
+        }
+      }
+
+      drawPlayerProjectile(projectile) {
+        const rotation = Math.atan2(projectile.vy, projectile.vx) + Math.PI / 4;
+        if (!this.drawSprite(projectile.sprite, projectile.frame, projectile.x, projectile.y, 34, 34, { rotation })) {
+          const ctx = this.ctx;
+          ctx.save();
+          ctx.translate(projectile.x, projectile.y);
+          ctx.rotate(rotation);
+          ctx.fillStyle = '#a16207';
+          ctx.fillRect(-10, -3, 20, 6);
+          ctx.restore();
+        }
+      }
+
+      drawEnemyProjectile(projectile) {
+        this.drawSprite('eggNest', { sx: 0, sy: 0, sw: 16, sh: 16 }, projectile.x, projectile.y, 30, 30, {
+          rotation: Math.atan2(projectile.vy, projectile.vx)
+        });
+      }
+
+      drawTreasureChest(chest) {
+        const openProgress = chest.collected ? Math.min(1, (this.elapsed - chest.openedAt) / 0.4) : 0;
+        const frameIndex = chest.collected ? Math.min(4, 2 + Math.floor(openProgress * 3)) : Math.floor(this.elapsed * 4) % 2;
+        this.drawSprite('chest', { sx: frameIndex * 48, sy: 0, sw: 48, sh: 48 }, chest.x, chest.y, 58, 58);
+      }
+
+      drawObstacle(obstacle) {
+        const ctx = this.ctx;
+        const alpha = Math.max(0.35, Math.min(1, (obstacle.expiresAt - this.elapsed) / 5 + 0.15));
+        const halfWidth = obstacle.width / 2;
+        const halfHeight = obstacle.height / 2;
+        ctx.save();
+        ctx.globalAlpha = 0.14;
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(obstacle.x - halfWidth, obstacle.y - halfHeight, obstacle.width, obstacle.height);
+        ctx.restore();
+
+        const segmentCount = obstacle.orientation === 'horizontal' ? 3 : 3;
+        for (let index = 0; index < segmentCount; index++) {
+          const offset = (index - (segmentCount - 1) / 2) * obstacle.segmentSize;
+          const drawX = obstacle.orientation === 'horizontal' ? obstacle.x + offset : obstacle.x;
+          const drawY = obstacle.orientation === 'horizontal' ? obstacle.y : obstacle.y + offset;
+          const rotation = obstacle.orientation === 'horizontal' ? 0 : Math.PI / 2;
+          const frame = { sx: obstacle.frameIndex * 16, sy: 0, sw: 16, sh: 16 };
+          if (!this.drawSprite('fences', frame, drawX, drawY, 44, 44, { rotation, alpha })) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#8b5a2b';
+            ctx.fillRect(drawX - 18, drawY - 8, 36, 16);
+            ctx.restore();
+          }
+        }
+      }
+
+      drawStageLabel() {
+        const ctx = this.ctx;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+        ctx.fillRect(14, 14, 250, 38);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px Noto Sans KR';
+        ctx.textAlign = 'left';
+        ctx.fillText(`STAGE ${this.stage.id} · ${this.stage.name}`, 26, 38);
+      }
+
+      getDirectionRow(direction) {
+        return { down: 0, up: 1, left: 2, right: 3 }[direction] ?? 0;
+      }
+
+      drawPlayer() {
+        const ctx = this.ctx;
+        const blink = this.player.invulnerable > 0 && Math.floor(this.player.invulnerable * 20) % 2 === 0;
+        const alpha = blink ? 0.35 : 1;
+        const directionRow = this.getDirectionRow(this.player.direction);
+        let drawn = false;
+
+        if (this.player.attackTimer > 0) {
+          const actionGroup = { hoe: 0, pickaxe: 1, furniture: 2 }[this.player.actionType] ?? 0;
+          const progress = 1 - this.player.attackTimer / this.player.attackDuration;
+          const frameColumn = progress < 0.5 ? 0 : 1;
+          drawn = this.drawSprite(
+            'playerActions',
+            { sx: frameColumn * 48, sy: (actionGroup * 4 + directionRow) * 48, sw: 48, sh: 48 },
+            this.player.x,
+            this.player.y,
+            66,
+            66,
+            { alpha }
+          );
+        }
+
+        if (!drawn) {
+          const frameColumn = this.player.moving ? Math.floor(this.player.walkClock) % 4 : 0;
+          drawn = this.drawSprite(
+            'playerWalk',
+            { sx: frameColumn * 48, sy: directionRow * 48, sw: 48, sh: 48 },
+            this.player.x,
+            this.player.y,
+            62,
+            62,
+            { alpha }
+          );
+        }
+
+        if (!drawn) {
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          ctx.arc(this.player.x, this.player.y, this.player.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#6366f1';
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      drawEnemy(enemy) {
+        const animationTime = this.elapsed * (enemy.boss ? 5 : 7) + enemy.animationOffset;
+        let drawn = false;
+
+        if (enemy.typeId === 'chicken') {
+          const frame = Math.floor(animationTime) % 2;
+          drawn = this.drawSprite('chicken', { sx: frame * 16, sy: 0, sw: 16, sh: 16 }, enemy.x, enemy.y, 40, 40);
+        } else if (enemy.typeId === 'hen') {
+          const frame = Math.floor(animationTime) % 4;
+          drawn = this.drawSprite('chicken', { sx: frame * 16, sy: 16, sw: 16, sh: 16 }, enemy.x, enemy.y, 46, 46);
+        } else if (enemy.typeId === 'nest') {
+          const frame = Math.floor(animationTime / 2) % 2 ? 2 : 3;
+          drawn = this.drawSprite('eggNest', { sx: frame * 16, sy: 0, sw: 16, sh: 16 }, enemy.x, enemy.y, 48, 48);
+        } else if (enemy.boss) {
+          const frame = Math.floor(animationTime) % 3;
+          drawn = this.drawSprite('cow', { sx: frame * 32, sy: 0, sw: 32, sh: 32 }, enemy.x, enemy.y, 104, 104);
+        }
+
+        if (!drawn) {
+          const ctx = this.ctx;
+          ctx.beginPath();
+          ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+          ctx.fillStyle = enemy.boss ? '#ef4444' : '#facc15';
+          ctx.fill();
+        }
+
+        if (enemy.boss) {
+          const ctx = this.ctx;
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 13px Noto Sans KR';
+          ctx.textAlign = 'center';
+          ctx.fillText('황소 농장주', enemy.x, enemy.y - enemy.radius - 28);
+        }
+      }
+
+      drawPickaxeOrbit() {
+        const weapon = this.weapons.get('pickaxeOrbit');
+        if (!weapon) return;
+        const count = weapon.level >= 4 ? 3 : weapon.level >= 2 ? 2 : 1;
+        const distance = 62 + weapon.level * 6;
+        for (let index = 0; index < count; index++) {
+          const angle = (weapon.angle || 0) + Math.PI * 2 * index / count;
+          const x = this.player.x + Math.cos(angle) * distance;
+          const y = this.player.y + Math.sin(angle) * distance;
+          this.drawSprite('tools', { sx: 16, sy: 64, sw: 16, sh: 16 }, x, y, 36, 36, { rotation: angle + Math.PI / 2 });
+        }
+      }
+
+      drawBossHealth() {
+        const boss = this.enemies.find((enemy) => enemy.boss);
+        if (!boss) return;
+        const ctx = this.ctx;
+        const width = 420;
+        const x = (this.width - width) / 2;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.fillRect(x - 8, 14, width + 16, 38);
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(x, 34, width, 10);
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(x, 34, width * Math.max(0, boss.hp / boss.maxHp), 10);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px Noto Sans KR';
+        ctx.textAlign = 'center';
+        ctx.fillText('최종 보스 · 황소 농장주', this.width / 2, 28);
+      }
+    }
+
+    createApp({
+      setup() {
+        // 공통 다국어 기능을 독립 모듈로 주입한다.
+        const i18n = LocalHub.features.createI18n({ Vue });
+        const {
+          currentLang,
+          currentLangLabel,
+          languageMenuOpen,
+          localeCode,
+          t,
+          translateCategory,
+          localText,
+          changeLanguage
+        } = i18n;
+
+        // 날씨 API와 상태 관리를 독립 모듈로 주입한다.
+        const weatherFeature = LocalHub.features.createWeather({
+          Vue,
+          currentLang,
+          localeCode,
+          t
+        });
+        const {
+          weather,
+          weatherDescription,
+          weatherIcon,
+          weatherUpdatedAt,
+          fetchWeather,
+          ensureWeather
+        } = weatherFeature;
+
+        // 지도 데이터, 필터, 검색, Leaflet 렌더링을 독립 모듈로 주입한다.
+        const mapFeature = LocalHub.features.createMap({
+          Vue,
+          Leaflet: L,
+          mapData: LocalHub.data.mapData,
+          localText,
+          translateCategory
+        });
+        const {
+          selectedMapType,
+          mapSearchQuery,
+          mapTypes,
+          filteredMapItems,
+          visibleMapItems,
+          remainingMapItemCount,
+          initMap,
+          filterMapType,
+          focusOnMapItem,
+          loadMoreMapItems
+        } = mapFeature;
+
+        // 기본 권역 및 데이터 설정
+        const activeTab = ref('home');
+        const showPwdModal = ref(false);
+
+        // 카테고리 정보
+        const categories = [
+          { name: '관광지', icon: 'fa-solid fa-mountain-sun', bgColor: 'bg-green-100 text-green-700' },
+          { name: '레포츠', icon: 'fa-solid fa-person-snowboarding', bgColor: 'bg-orange-100 text-orange-700' },
+          { name: '문화시설', icon: 'fa-solid fa-landmark', bgColor: 'bg-blue-100 text-blue-700' },
+          { name: '쇼핑', icon: 'fa-solid fa-bag-shopping', bgColor: 'bg-yellow-100 text-yellow-700' },
+          { name: '숙박', icon: 'fa-solid fa-hotel', bgColor: 'bg-purple-100 text-purple-700' },
+          { name: '여행코스', icon: 'fa-solid fa-route', bgColor: 'bg-teal-100 text-teal-700' },
+          { name: '축제공연행사', icon: 'fa-solid fa-mask-face', bgColor: 'bg-red-100 text-red-700' }
+        ];
+
+        const boardCategories = ['관광지', '레포츠', '문화시설', '쇼핑', '숙박', '여행코스', '축제공연행사'];
+
+        // 경북 데이터베이스 내장
+        const embeddedData = {
+          관광지: {
+            items: [
+              { contentid: '1', title: '금오산도립공원', addr1: '경상북도 구미시 금오산로 433-3', contentType: '관광지', contentTypeName: '관광지', lat: 36.105972, lng: 128.30531 },
+              { contentid: '2', title: '지산샛강생태공원', addr1: '경상북도 구미시 대평길 102', contentType: '관광지', contentTypeName: '관광지', lat: 36.138462, lng: 128.356931 },
+              { contentid: '3', title: '구미낙동강체육공원', addr1: '경상북도 구미시 낙동제방길 200', contentType: '관광지', contentTypeName: '관광지', lat: 36.137651, lng: 128.367703 },
+              { contentid: '4', title: '금오서원', addr1: '경상북도 구미시 선산읍 유학길 593-31', contentType: '관광지', contentTypeName: '관광지', lat: 36.227747, lng: 128.33862 },
+              { contentid: '5', title: '구미에코랜드', addr1: '경상북도 구미시 산동읍 인덕1길 195', contentType: '관광지', contentTypeName: '관광지', lat: 36.177108, lng: 128.462462 }
+            ]
+          },
+          레포츠: {
+            items: [
+              { contentid: '6', title: '구미시승마장', addr1: '경상북도 구미시 옥성면 선상동로 1174-7', contentType: '레포츠', contentTypeName: '레포츠', lat: 36.325094, lng: 128.277501 },
+              { contentid: '7', title: '금오산야영장', addr1: '경상북도 구미시 금오산상가길 12', contentType: '레포츠', contentTypeName: '레포츠', lat: 36.10746, lng: 128.317269 },
+              { contentid: '8', title: '구미캠핑장', addr1: '경상북도 구미시 낙동제방길 200', contentType: '레포츠', contentTypeName: '레포츠', lat: 36.137696, lng: 128.367728 }
+            ]
+          },
+          문화시설: {
+            items: [
+              { contentid: '9', title: '구미시문화예술회관', addr1: '경상북도 구미시 송정대로 89', contentType: '문화시설', contentTypeName: '문화시설', lat: 36.118377, lng: 128.34898 },
+              { contentid: '10', title: '구미과학관', addr1: '경상북도 구미시 3공단1로 219-1', contentType: '문화시설', contentTypeName: '문화시설', lat: 36.102317, lng: 128.400498 }
+            ]
+          },
+          쇼핑: {
+            items: [
+              { contentid: '11', title: '구미새마을중앙시장', addr1: '경상북도 구미시 구미중앙로9길 11', contentType: '쇼핑', contentTypeName: '쇼핑', lat: 36.130647, lng: 128.329925 },
+              { contentid: '12', title: '구미 해평시장', addr1: '경상북도 구미시 해평면 해평시장2길 19', contentType: '쇼핑', contentTypeName: '쇼핑', lat: 36.19448, lng: 128.391291 }
+            ]
+          },
+          숙박: {
+            items: [
+              { contentid: '13', title: '호텔 금오산', addr1: '경상북도 구미시 금오산로 400', contentType: '숙박', contentTypeName: '숙박', lat: 36.110283, lng: 128.309604 },
+              { contentid: '14', title: '라마다 바이 윈덤 구미 호텔', addr1: '경상북도 구미시 인동중앙로3길 41', contentType: '숙박', contentTypeName: '숙박', lat: 36.109917, lng: 128.418352 }
+            ]
+          },
+          여행코스: {
+            items: [
+              { contentid: '15', title: '금빛까마귀 금오산 힐링 코스', addr1: '경상북도 구미시 금오산로 일대', contentType: '여행코스', contentTypeName: '여행코스', lat: 36.112506, lng: 128.312997 }
+            ]
+          },
+          festival: {
+            items: [
+              { contentid: '16', title: '구미라면 축제', eventstartdate: '20261106', eventenddate: '20261108', addr1: '구미역 일원', program: '갓 튀긴 라면 팝업스토어 및 이색라면 대제전', contentType: '축제', contentTypeName: '축제공연행사', lat: 36.129404, lng: 128.331422 },
+              { contentid: '17', title: '구미푸드페스티벌', eventstartdate: '20261017', eventenddate: '20261018', addr1: '송정맛길 일원', program: '구미 9味존 마당 푸드 파이터쇼 및 김치맥 파티', contentType: '축제', contentTypeName: '축제공연행사', lat: 36.116079, lng: 128.349461 },
+              { contentid: '18', title: '대한민국 펫캉스', eventstartdate: '20260710', eventenddate: '20260712', addr1: '구미코 전시장', program: '반려동물 마이스 토크쇼 및 펫 어질리티 전당', contentType: '축제', contentTypeName: '축제공연행사', lat: 36.141596, lng: 128.442232 }
+            ]
+          }
+        };
+
+        // 게임 밸런스와 실제 장소 데이터는 분리하고 contentid로 연결한다.
+        const gamePlaceholderImage = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="800" height="500">
+            <rect width="100%" height="100%" fill="#eef2ff"/>
+            <circle cx="400" cy="210" r="72" fill="#c7d2fe"/>
+            <path d="M250 390l105-105 70 70 55-55 90 90H250z" fill="#818cf8"/>
+            <text x="400" y="455" text-anchor="middle" font-family="sans-serif" font-size="28" fill="#4338ca">LocalHub Gumi</text>
+          </svg>`);
+
+        const gamePlaceData = [
+          { contentid: '2757045', title: '구미역 후면광장', addr1: '경상북도 구미시 구미중앙로 76 (원평동)', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/34/2757034_image2_1.jpg', lat: Number('36.1278'), lng: Number('128.3302'), contentType: '관광지', contentTypeName: '관광지' },
+          { contentid: '2736738', title: '구미새마을중앙시장', addr1: '경상북도 구미시 구미중앙로9길 11 (원평동)', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/40/4052540_image2_1.jpg', lat: Number('36.13064774285063'), lng: Number('128.3299255605999'), contentType: '쇼핑', contentTypeName: '쇼핑' },
+          { contentid: '3028462', title: '구미라면 축제', addr1: '경상북도 구미시 원평동', addr2: '124-23 구미역 일원', image: 'https://tong.visitkorea.or.kr/cms/resource/40/3497640_image2_1.jpg', lat: Number('36.129404'), lng: Number('128.331422'), contentType: '축제', contentTypeName: '축제공연행사' },
+          { contentid: '126016', title: '금오산도립공원', addr1: '경상북도 구미시 금오산로 433-3 (남통동)', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/01/3566301_image2_1.jpg', lat: Number('36.105972'), lng: Number('128.30531'), contentType: '관광지', contentTypeName: '관광지' },
+          { contentid: '2800082', title: '금오산케이블카', addr1: '경상북도 구미시 금오산로 419', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/42/3566342_image2_1.jpg', lat: Number('36.1084154170'), lng: Number('128.3071787206'), contentType: '관광지', contentTypeName: '관광지' },
+          { contentid: '2500326', title: '구미에코랜드', addr1: '경상북도 구미시 산동읍 인덕1길 195', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/89/3513389_image2_1.jpg', lat: Number('36.1771085796128'), lng: Number('128.462462735217'), contentType: '관광지', contentTypeName: '관광지' },
+          { contentid: '129739', title: '구미시문화예술회관', addr1: '경상북도 구미시 송정대로 89 구미시문화예술회관', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/12/3566112_image2_1.jpg', lat: Number('36.1183773676'), lng: Number('128.3489807162'), contentType: '문화시설', contentTypeName: '문화시설' },
+          { contentid: '3035970', title: '구미낙동강체육공원', addr1: '경상북도 구미시 낙동제방길 200 (양호동)', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/71/4067671_image2_1.jpg', lat: Number('36.1376514681'), lng: Number('128.3677035180'), contentType: '관광지', contentTypeName: '관광지' },
+          { contentid: '3029654', title: '금오산야영장', addr1: '경상북도 구미시 금오산상가길 12 (남통동)', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/52/3029652_image2_1.jpg', lat: Number('36.10746'), lng: Number('128.317269'), contentType: '레포츠', contentTypeName: '레포츠' },
+          { contentid: '3468537', title: '구미역김밥', addr1: '경상북도 구미시 구미중앙로 68-1 (원평동)', addr2: '', image: 'https://tong.visitkorea.or.kr/cms/resource/32/3468532_image2_1.jpg', lat: Number('36.12921073243924'), lng: Number('128.33023257403087'), contentType: '음식점', contentTypeName: '음식점' }
+        ];
+
+        const GAME_ASSET_PATHS = {
+          playerWalk: 'assets/game/sprites/player_walk.png',
+          playerActions: 'assets/game/sprites/player_actions.png',
+          chicken: 'assets/game/sprites/chicken.png',
+          cow: 'assets/game/sprites/cow.png',
+          eggNest: 'assets/game/sprites/egg_nest.png',
+          eggItem: 'assets/game/sprites/egg_item.png',
+          tools: 'assets/game/sprites/tools.png',
+          basicTools: 'assets/game/sprites/basic_tools_materials.png',
+          furniture: 'assets/game/sprites/furniture.png',
+          plants: 'assets/game/sprites/plants.png',
+          grassObjects: 'assets/game/sprites/grass_objects.png',
+          chest: 'assets/game/sprites/chest.png',
+          hills: 'assets/game/sprites/hills_tiles.png',
+          fences: 'assets/game/sprites/fences.png'
+        };
+
+        let gameAssetPromise = null;
+        const loadGameAssets = () => {
+          if (gameAssetPromise) return gameAssetPromise;
+          gameAssetPromise = Promise.all(Object.entries(GAME_ASSET_PATHS).map(([key, src]) => new Promise(resolve => {
+            const image = new Image();
+            image.onload = () => resolve([key, image]);
+            image.onerror = () => resolve([key, image]);
+            image.src = src;
+          }))).then(entries => Object.fromEntries(entries));
+          return gameAssetPromise;
+        };
+
+        const gameData = {
+          weapons: {
+            hoeStrike: { id: 'hoeStrike', kind: 'weapon', name: '장터 괭이', asset: 'assets/game/icons/hoe.png', description: '가장 가까운 적에게 괭이를 자동으로 던집니다.', placeId: '2736738' },
+            pickaxeOrbit: { id: 'pickaxeOrbit', kind: 'weapon', name: '금오산 곡괭이', asset: 'assets/game/icons/pickaxe.png', description: '플레이어 주변을 회전하며 닿은 닭과 암탉에게 지속 피해를 줍니다.', placeId: '126016' },
+            furnitureDrop: { id: 'furnitureDrop', kind: 'weapon', name: '정착 가구 세트', asset: 'assets/game/icons/chair.png', description: '적이 모인 위치에 가구를 떨어뜨려 범위 피해를 줍니다.', placeId: '2500326' }
+          },
+          passives: {
+            seedBag: { id: 'seedBag', kind: 'passive', name: '새싹 씨앗 주머니', asset: 'assets/game/icons/seed_bag.png', description: '계란 경험치를 끌어당기는 범위가 증가합니다.', placeId: '2500326' },
+            forestCharm: { id: 'forestCharm', kind: 'passive', name: '금오산 숲의 기운', asset: 'assets/game/icons/tree.png', description: '이동속도가 증가하여 닭 떼와 알 공격을 피하기 쉬워집니다.', placeId: '2800082' },
+            settlementChest: { id: 'settlementChest', kind: 'passive', name: '전입 정착 상자', asset: 'assets/game/icons/chest.png', description: '최대 체력이 증가하고 증가분만큼 체력을 회복합니다.', placeId: '2757045' }
+          },
+          enemies: {
+            chicken: { label: '농장 닭', hp: 18, speed: 76, radius: 14, damage: 7, exp: 2 },
+            hen: { label: '성난 암탉', hp: 46, speed: 58, radius: 17, damage: 11, exp: 5 },
+            nest: { label: '부화 둥지', hp: 115, speed: 0, radius: 22, damage: 13, exp: 10, stationary: true },
+            boss: { label: '황소 농장주', hp: 1650, speed: 35, radius: 48, damage: 25, exp: 100 }
+          }
+        };
+
+        // 지도와 대시보드는 업로드된 8개 JSON 전체 데이터를 사용한다.
+        const allItems = LocalHub.data.mapData.items;
+
+        // -------------------------
+        // 게시판 시스템 로직
+        // -------------------------
+        const posts = ref(JSON.parse(localStorage.getItem('localhub_posts') || '[]'));
+        
+        // 예시 데이터가 없을 경우 세팅
+        if (posts.value.length === 0) {
+          const samplePosts = [
+            {
+              id: 1,
+              category: '관광지',
+              title: '구미 금오산 가을 등산하기 너무 좋습니다.',
+              content: '오늘 주말을 맞이해서 금오산 도립공원에 다녀왔습니다. 케이블카 타고 올라가서 도선굴도 보고 대혜폭포 시원한 물줄기도 구경했네요! 경치가 환상적이니 이번 가을 꼭 가보세요.',
+              author: '익명_금오산러',
+              password: '1234',
+              views: 120,
+              likes: 15,
+              createdAt: new Date(Date.now() - 3600000 * 24 * 2).toISOString()
+            },
+            {
+              id: 2,
+              category: '축제공연행사',
+              title: '올해 구미라면 축제 일정 드디어 떴네요!',
+              content: '기획서 보니까 2026년 11월 6일부터 8일까지 구미역 일대에서 열린다고 합니다. 갓 튀긴 라면 팝업 스토어랑 이색 레스토랑 정말 기대돼요!',
+              author: '라면보이',
+              password: '1234',
+              views: 85,
+              likes: 12,
+              createdAt: new Date(Date.now() - 3600000 * 5).toISOString()
+            }
+          ];
+          posts.value = samplePosts;
+          localStorage.setItem('localhub_posts', JSON.stringify(samplePosts));
+        }
+
+        const selectedBoardCategory = ref('전체');
+        const searchQuery = ref('');
+        const currentPage = ref(1);
+        const itemsPerPage = 8;
+
+        const isWriting = ref(false);
+        const selectedPost = ref(null);
+        const pwdInput = ref('');
+        const pwdActionType = ref(''); // 'edit' or 'delete'
+        const pwdTargetPost = ref(null);
+
+        const postForm = reactive({
+          category: '관광지',
+          title: '',
+          content: '',
+          author: '익명_경북인',
+          password: ''
+        });
+        const formPostId = ref(null);
+
+        // 게시판 필터링 목록
+        const filteredPosts = computed(() => {
+          let list = [...posts.value];
+          if (selectedBoardCategory.value !== '전체') {
+            list = list.filter(p => p.category === selectedBoardCategory.value);
+          }
+          if (searchQuery.value.trim() !== '') {
+            const query = searchQuery.value.toLowerCase();
+            list = list.filter(p => p.title.toLowerCase().includes(query) || p.content.toLowerCase().includes(query));
+          }
+          // 최신순 정렬
+          return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        });
+
+        const totalFilteredPosts = computed(() => filteredPosts.value.length);
+        const totalPages = computed(() => Math.ceil(totalFilteredPosts.value / itemsPerPage));
+
+        const paginatedPosts = computed(() => {
+          const start = (currentPage.value - 1) * itemsPerPage;
+          const end = start + itemsPerPage;
+          return filteredPosts.value.slice(start, end);
+        });
+
+        const recentPosts = computed(() => {
+          return [...posts.value].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 4);
+        });
+
+        // -------------------------
+        // 달력 시스템 로직
+        // -------------------------
+        const currentYear = ref(2026);
+        const currentMonth = ref(6); // 7월 (0-indexed)
+
+        const calendarBlanks = computed(() => {
+          const firstDay = new Date(currentYear.value, currentMonth.value, 1).getDay();
+          return firstDay;
+        });
+
+        const calendarDays = computed(() => {
+          const lastDate = new Date(currentYear.value, currentMonth.value + 1, 0).getDate();
+          return Array.from({ length: lastDate }, (_, i) => i + 1);
+        });
+
+        const monthlyFestivals = computed(() => {
+          const list = embeddedData.festival.items;
+          return list.filter(fest => {
+            const startDate = fest.eventstartdate;
+            const fYear = parseInt(startDate.slice(0, 4));
+            const fMonth = parseInt(startDate.slice(4, 6)) - 1;
+            return fYear === currentYear.value && fMonth === currentMonth.value;
+          });
+        });
+
+        // -------------------------
+        // 구미 전입자 생존기
+        // -------------------------
+        const GAME_RECORDS_KEY = 'localhub_game_records';
+        const GAME_COLLECTION_KEY = 'localhub_game_collection';
+        const GAME_PROGRESS_KEY = 'localhub_game_progress';
+        const GAME_RANKINGS_KEY = 'localhub_game_rankings';
+        const gameCanvas = ref(null);
+        const gameView = ref('intro');
+        const gameChoices = ref([]);
+        const gameToast = ref('');
+        const discoveredThisRun = ref([]);
+        const pendingMapPlace = ref(null);
+        let gameEngine = null;
+        let gameToastTimer = null;
+
+        const readGameStorage = (key, fallback) => {
+          try {
+            return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+          } catch (error) {
+            return fallback;
+          }
+        };
+
+        const gameStages = [
+          { id: 1, name: '구미역 생활권', difficultyLabel: '입문', icon: 'fa-solid fa-train', hpMultiplier: 1, speedMultiplier: 1, damageMultiplier: 1, spawnRate: 1, spawnBonus: 0, bossMultiplier: 1, scoreMultiplier: 1, background: '#0f172a', overlay: 'rgba(59, 130, 246, 0.04)', gridColor: 'rgba(99, 102, 241, 0.12)' },
+          { id: 2, name: '금오시장 골목', difficultyLabel: '보통', icon: 'fa-solid fa-basket-shopping', hpMultiplier: 1.25, speedMultiplier: 1.06, damageMultiplier: 1.15, spawnRate: 1.12, spawnBonus: 0.25, bossMultiplier: 1.3, scoreMultiplier: 1.2, background: '#172033', overlay: 'rgba(251, 191, 36, 0.05)', gridColor: 'rgba(251, 191, 36, 0.13)' },
+          { id: 3, name: '낙동강 시민공원', difficultyLabel: '어려움', icon: 'fa-solid fa-water', hpMultiplier: 1.55, speedMultiplier: 1.12, damageMultiplier: 1.3, spawnRate: 1.24, spawnBonus: 0.5, bossMultiplier: 1.65, scoreMultiplier: 1.5, background: '#102a2f', overlay: 'rgba(20, 184, 166, 0.05)', gridColor: 'rgba(45, 212, 191, 0.13)' },
+          { id: 4, name: '금오산 진입로', difficultyLabel: '매우 어려움', icon: 'fa-solid fa-mountain', hpMultiplier: 1.9, speedMultiplier: 1.18, damageMultiplier: 1.48, spawnRate: 1.38, spawnBonus: 0.75, bossMultiplier: 2.05, scoreMultiplier: 1.8, background: '#1f2937', overlay: 'rgba(22, 101, 52, 0.07)', gridColor: 'rgba(74, 222, 128, 0.13)' },
+          { id: 5, name: '구미 국가산단', difficultyLabel: '극한', icon: 'fa-solid fa-industry', hpMultiplier: 2.35, speedMultiplier: 1.25, damageMultiplier: 1.7, spawnRate: 1.55, spawnBonus: 1, bossMultiplier: 2.55, scoreMultiplier: 2.2, background: '#24152e', overlay: 'rgba(88, 28, 135, 0.08)', gridColor: 'rgba(244, 114, 182, 0.13)' }
+        ];
+
+        const storedProgress = readGameStorage(GAME_PROGRESS_KEY, {});
+        const gameProgress = reactive({
+          highestUnlocked: Math.min(gameStages.length, Math.max(1, Number(storedProgress.highestUnlocked) || 1)),
+          highestCleared: Math.min(gameStages.length, Math.max(0, Number(storedProgress.highestCleared) || 0)),
+          selectedStage: Math.min(gameStages.length, Math.max(1, Number(storedProgress.selectedStage) || 1)),
+          playerName: String(storedProgress.playerName || '전입자').slice(0, 10)
+        });
+        if (gameProgress.selectedStage > gameProgress.highestUnlocked) gameProgress.selectedStage = gameProgress.highestUnlocked;
+
+        const storedRankings = readGameStorage(GAME_RANKINGS_KEY, []);
+        const gameRankings = ref(Array.isArray(storedRankings) ? storedRankings : []);
+        const selectedGameStage = computed(() => gameStages.find(stage => stage.id === gameProgress.selectedStage) || gameStages[0]);
+        const gameLeaderboard = computed(() => [...gameRankings.value]
+          .sort((a, b) => b.score - a.score || b.stage - a.stage || b.level - a.level)
+          .slice(0, 10));
+
+        const gameRecords = reactive({
+          bestScore: 0,
+          bestLevel: 1,
+          bestSurvival: 0,
+          playCount: 0,
+          ...readGameStorage(GAME_RECORDS_KEY, {})
+        });
+
+        const storedCollection = readGameStorage(GAME_COLLECTION_KEY, {});
+        const gameCollection = reactive({
+          places: Array.isArray(storedCollection.places) ? storedCollection.places : [],
+          weapons: Array.isArray(storedCollection.weapons) ? storedCollection.weapons : [],
+          passives: Array.isArray(storedCollection.passives) ? storedCollection.passives : []
+        });
+
+        const gameHud = reactive({ hp: 100, maxHp: 100, level: 1, xp: 0, xpToNext: 8, remainingTime: 300, kills: 0, score: 0, stage: 1, stageName: gameStages[0].name });
+        const gameLoadout = reactive({ weapons: [], passives: [] });
+        const gameResult = reactive({ victory: false, score: 0, survivalTime: 0, level: 1, kills: 0, stage: 1, stageName: gameStages[0].name, rank: 0, nextStageUnlocked: false, places: [], loadout: { weapons: [], passives: [] } });
+
+        const getGamePlace = (contentid) => gamePlaceData.find(place => place.contentid === contentid) || null;
+        const getGameRarityLabel = (rarity) => rarity === 'rare' ? '레어' : '보통';
+        const getGameRarityClass = (rarity) => rarity === 'rare' ? 'game-rarity-rare' : 'game-rarity-common';
+        const getGameResultHighestRarity = () => {
+          const items = [...gameResult.loadout.weapons, ...gameResult.loadout.passives];
+          return items.some(item => item.rarity === 'rare') ? '레어' : '보통';
+        };
+        const formatGameTime = (seconds) => {
+          const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+          const minutes = Math.floor(safeSeconds / 60).toString().padStart(2, '0');
+          const remain = (safeSeconds % 60).toString().padStart(2, '0');
+          return `${minutes}:${remain}`;
+        };
+        const formatGameDate = (value) => {
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) return '-';
+          return date.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        };
+
+        const saveGameStorage = () => {
+          gameProgress.playerName = (gameProgress.playerName.trim() || '전입자').slice(0, 10);
+          localStorage.setItem(GAME_RECORDS_KEY, JSON.stringify(gameRecords));
+          localStorage.setItem(GAME_COLLECTION_KEY, JSON.stringify(gameCollection));
+          localStorage.setItem(GAME_PROGRESS_KEY, JSON.stringify(gameProgress));
+          localStorage.setItem(GAME_RANKINGS_KEY, JSON.stringify(gameRankings.value));
+        };
+
+        const showGameMessage = (message) => {
+          gameToast.value = message;
+          clearTimeout(gameToastTimer);
+          gameToastTimer = setTimeout(() => { gameToast.value = ''; }, 3200);
+        };
+
+        const discoverGamePlace = (contentid, message = '') => {
+          const place = getGamePlace(contentid);
+          if (!place) return;
+          if (!discoveredThisRun.value.some(item => item.contentid === contentid)) discoveredThisRun.value.push(place);
+          if (!gameCollection.places.includes(contentid)) {
+            gameCollection.places.push(contentid);
+            saveGameStorage();
+          }
+          if (message) showGameMessage(`${message} · ${place.title}`);
+        };
+
+        const syncGameLoadout = () => {
+          if (!gameEngine) return;
+          const loadout = gameEngine.getLoadout();
+          gameLoadout.weapons.splice(0, gameLoadout.weapons.length, ...loadout.weapons);
+          gameLoadout.passives.splice(0, gameLoadout.passives.length, ...loadout.passives);
+        };
+
+        const rollGameRarity = () => Math.random() < 0.23 ? 'rare' : 'common';
+
+        const createGameChoices = () => {
+          const candidates = [];
+          const appendCandidates = (definitions, kind) => {
+            Object.values(definitions).forEach(definition => {
+              const currentLevel = gameEngine.getOwnedLevel(kind, definition.id);
+              const canAdd = currentLevel > 0 || gameEngine.getSlotCount(kind) < 4;
+              if (!canAdd || currentLevel >= 5) return;
+              const ownedRarity = gameEngine.getOwnedRarity(kind, definition.id);
+              candidates.push({
+                ...definition,
+                kind,
+                currentLevel,
+                nextLevel: currentLevel + 1,
+                rarity: ownedRarity || rollGameRarity(),
+                place: getGamePlace(definition.placeId)
+              });
+            });
+          };
+          appendCandidates(gameData.weapons, 'weapon');
+          appendCandidates(gameData.passives, 'passive');
+
+          const shuffled = [...candidates].sort(() => Math.random() - 0.5).slice(0, 3);
+          while (shuffled.length < 3) {
+            shuffled.push({
+              id: `recovery-${shuffled.length}`,
+              kind: 'recovery',
+              name: '신선한 계란 요리',
+              asset: 'assets/game/icons/egg.png',
+              description: '체력을 35 회복합니다.',
+              currentLevel: 0,
+              nextLevel: 1,
+              rarity: 'common',
+              place: getGamePlace('3035970')
+            });
+          }
+          gameChoices.value = shuffled;
+        };
+
+        const handleGameLevelUp = () => {
+          syncGameLoadout();
+          createGameChoices();
+          gameView.value = 'levelup';
+        };
+
+        const selectGameStage = (stageId) => {
+          if (stageId > gameProgress.highestUnlocked) return;
+          gameProgress.selectedStage = stageId;
+          saveGameStorage();
+        };
+
+        const registerGameRanking = (payload) => {
+          const entry = {
+            id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+            name: (gameProgress.playerName.trim() || '전입자').slice(0, 10),
+            stage: payload.stage,
+            stageName: payload.stageName,
+            score: payload.score,
+            level: payload.level,
+            kills: payload.kills,
+            survivalTime: payload.survivalTime,
+            victory: payload.victory,
+            playedAt: new Date().toISOString()
+          };
+          gameRankings.value.push(entry);
+          gameRankings.value = [...gameRankings.value]
+            .sort((a, b) => b.score - a.score || b.stage - a.stage || b.level - a.level)
+            .slice(0, 30);
+          return gameRankings.value.findIndex(item => item.id === entry.id) + 1;
+        };
+
+        const handleGameEnd = (payload) => {
+          syncGameLoadout();
+          let nextStageUnlocked = false;
+          if (payload.victory) {
+            gameProgress.highestCleared = Math.max(gameProgress.highestCleared, payload.stage);
+            if (payload.stage < gameStages.length && gameProgress.highestUnlocked < payload.stage + 1) {
+              gameProgress.highestUnlocked = payload.stage + 1;
+              nextStageUnlocked = true;
+            }
+          }
+          const rank = registerGameRanking(payload);
+          Object.assign(gameResult, {
+            ...payload,
+            rank,
+            nextStageUnlocked,
+            places: discoveredThisRun.value.slice(0, 5),
+            loadout: { weapons: [...gameLoadout.weapons], passives: [...gameLoadout.passives] }
+          });
+          gameRecords.playCount += 1;
+          gameRecords.bestScore = Math.max(gameRecords.bestScore, payload.score);
+          gameRecords.bestLevel = Math.max(gameRecords.bestLevel, payload.level);
+          gameRecords.bestSurvival = Math.max(gameRecords.bestSurvival, payload.survivalTime);
+          saveGameStorage();
+          gameView.value = 'result';
+        };
+
+        const startGame = async () => {
+          if (gameEngine) gameEngine.destroy();
+          discoveredThisRun.value = [];
+          gameChoices.value = [];
+          gameLoadout.weapons.splice(0);
+          gameLoadout.passives.splice(0);
+          const stage = selectedGameStage.value;
+          Object.assign(gameHud, { hp: 100, maxHp: 100, level: 1, xp: 0, xpToNext: 8, remainingTime: 300, kills: 0, score: 0, stage: stage.id, stageName: stage.name });
+          gameView.value = 'playing';
+          const images = await loadGameAssets();
+
+          nextTick(() => {
+            const queryDuration = Number(new URLSearchParams(window.location.search).get('gameDuration'));
+            const gameDuration = Number.isFinite(queryDuration) ? Math.min(300, Math.max(30, queryDuration)) : 300;
+            gameHud.remainingTime = gameDuration;
+            gameEngine = new LocalHubSurvivalGame(gameCanvas.value, {
+              data: gameData,
+              images,
+              duration: gameDuration,
+              stage,
+              callbacks: {
+                onHud: (hud) => Object.assign(gameHud, hud),
+                onLevelUp: handleGameLevelUp,
+                onMilestone: (index) => {
+                  const milestonePlaces = ['129739', '3029654', '3468537', '3035970'];
+                  const contentid = milestonePlaces[(index - 1) % milestonePlaces.length];
+                  discoverGamePlace(contentid, '새로운 지역 정보를 발견했습니다');
+                },
+                onBossSpawn: () => showGameMessage(`STAGE ${stage.id} 최종 보스 「황소 농장주」가 나타났습니다!`),
+                onBossAbility: (message) => showGameMessage(message),
+                onChestOpen: () => showGameMessage('정착 보물상자를 열어 체력과 경험치를 얻었습니다.'),
+                onEnd: handleGameEnd
+              }
+            });
+            gameEngine.start();
+            syncGameLoadout();
+            if (!gameCollection.weapons.includes('hoeStrike')) gameCollection.weapons.push('hoeStrike');
+            discoverGamePlace('2736738', '장터 괭이를 획득했습니다');
+            saveGameStorage();
+          });
+        };
+
+        const startNextGameStage = () => {
+          const nextStage = Math.min(gameStages.length, gameResult.stage + 1);
+          selectGameStage(nextStage);
+          startGame();
+        };
+
+        const chooseGameUpgrade = (choice) => {
+          if (!gameEngine) return;
+          gameEngine.applyUpgrade(choice);
+          if (choice.kind === 'weapon' && !gameCollection.weapons.includes(choice.id)) gameCollection.weapons.push(choice.id);
+          if (choice.kind === 'passive' && !gameCollection.passives.includes(choice.id)) gameCollection.passives.push(choice.id);
+          if (choice.place) discoverGamePlace(choice.place.contentid, `${choice.name}을(를) 선택했습니다`);
+          syncGameLoadout();
+          saveGameStorage();
+          gameView.value = 'playing';
+          gameEngine.resume();
+        };
+
+        const toggleGamePause = () => {
+          if (!gameEngine || gameView.value === 'levelup') return;
+          if (gameView.value === 'paused') {
+            gameView.value = 'playing';
+            gameEngine.resume();
+          } else if (gameView.value === 'playing') {
+            gameEngine.pause();
+            gameView.value = 'paused';
+          }
+        };
+
+        const returnToGameIntro = () => {
+          if (gameEngine) gameEngine.destroy();
+          gameEngine = null;
+          gameView.value = 'intro';
+          gameToast.value = '';
+        };
+
+        const viewGamePlaceOnMap = (place) => {
+          pendingMapPlace.value = place;
+          selectedMapType.value = place.contentType;
+          changeTab('map');
+        };
+
+        // -------------------------
+        // 대시보드 통계 및 차트
+        // -------------------------
+        const dashboardStats = computed(() => [
+          { title: '전체 관광 DB', value: allItems.length + '건', icon: 'fa-solid fa-database', color: 'bg-indigo-600' },
+          { title: '우리 커뮤니티', value: posts.value.length + '개 글', icon: 'fa-solid fa-comments', color: 'bg-green-600' },
+          { title: '진행예정 축제', value: embeddedData.festival.items.length + '건', icon: 'fa-solid fa-flag', color: 'bg-red-600' },
+          { title: '공유 정보 만족도', value: '98%', icon: 'fa-solid fa-star', color: 'bg-yellow-500' }
+        ]);
+
+
+        // -------------------------
+        // 메인 공통 함수 및 이벤트 핸들러
+        // -------------------------
+        const changeTab = (tab) => {
+          if (activeTab.value === 'game' && tab !== 'game' && gameEngine && gameView.value === 'playing') {
+            gameEngine.pause();
+            gameView.value = 'paused';
+          }
+          activeTab.value = tab;
+          selectedPost.value = null;
+          isWriting.value = false;
+
+          if (tab === 'map') {
+            nextTick(() => {
+              initMap();
+            });
+          } else if (tab === 'weather') {
+            ensureWeather();
+          } else if (tab === 'dashboard') {
+            nextTick(() => {
+              renderChart();
+            });
+          }
+        };
+
+        const viewCategory = (categoryName) => {
+          if (categoryName === '축제공연행사') {
+            changeTab('calendar');
+          } else {
+            selectedMapType.value = categoryName === '축제' ? '축제' : categoryName;
+            changeTab('map');
+          }
+        };
+
+        // 게시글 상세 관련
+        const viewPostDetail = (post) => {
+          selectedPost.value = post;
+          post.views++;
+          savePostsToStorage();
+        };
+
+        const goBackToList = () => {
+          selectedPost.value = null;
+        };
+
+        const filterBoardCategory = (tab) => {
+          selectedBoardCategory.value = tab;
+          currentPage.value = 1;
+        };
+
+        // CRUD - 글쓰기 양식 열기
+        const openWriteForm = () => {
+          formPostId.value = null;
+          postForm.title = '';
+          postForm.content = '';
+          postForm.password = '';
+          postForm.category = '관광지';
+          isWriting.value = true;
+        };
+
+        const openEditForm = (post) => {
+          pwdActionType.value = 'edit';
+          pwdTargetPost.value = post;
+          pwdInput.value = '';
+          showPwdModal.value = true;
+        };
+
+        const promptDelete = (post) => {
+          pwdActionType.value = 'delete';
+          pwdTargetPost.value = post;
+          pwdInput.value = '';
+          showPwdModal.value = true;
+        };
+
+        const closePwdModal = () => {
+          showPwdModal.value = false;
+        };
+
+        const confirmPassword = () => {
+          if (!pwdInput.value) {
+            alert('비밀번호를 입력해주세요.');
+            return;
+          }
+          if (pwdInput.value === pwdTargetPost.value.password) {
+            showPwdModal.value = false;
+            if (pwdActionType.value === 'edit') {
+              formPostId.value = pwdTargetPost.value.id;
+              postForm.title = pwdTargetPost.value.title;
+              postForm.content = pwdTargetPost.value.content;
+              postForm.category = pwdTargetPost.value.category;
+              postForm.password = pwdTargetPost.value.password;
+              isWriting.value = true;
+            } else if (pwdActionType.value === 'delete') {
+              posts.value = posts.value.filter(p => p.id !== pwdTargetPost.value.id);
+              savePostsToStorage();
+              selectedPost.value = null;
+              alert('성공적으로 삭제되었습니다.');
+            }
+          } else {
+            alert('비밀번호가 일치하지 않습니다.');
+          }
+        };
+
+        const closeWriteForm = () => {
+          isWriting.value = false;
+        };
+
+        const submitPost = () => {
+          if (!postForm.title.trim() || !postForm.content.trim()) {
+            alert('제목과 내용을 모두 입력해주세요.');
+            return;
+          }
+          if (!postForm.password || postForm.password.length !== 4 || isNaN(postForm.password)) {
+            alert('익명 수정용 비밀번호 숫자 4자리를 정확히 입력해주세요.');
+            return;
+          }
+
+          if (formPostId.value) {
+            // 수정 모드
+            const index = posts.value.findIndex(p => p.id === formPostId.value);
+            if (index !== -1) {
+              posts.value[index].title = postForm.title;
+              posts.value[index].content = postForm.content;
+              posts.value[index].category = postForm.category;
+              posts.value[index].password = postForm.password;
+              selectedPost.value = posts.value[index];
+            }
+          } else {
+            // 신규 작성
+            const newId = posts.value.length > 0 ? Math.max(...posts.value.map(p => p.id)) + 1 : 1;
+            const newPost = {
+              id: newId,
+              category: postForm.category,
+              title: postForm.title,
+              content: postForm.content,
+              author: postForm.author,
+              password: postForm.password,
+              views: 0,
+              likes: 0,
+              createdAt: new Date().toISOString()
+            };
+            posts.value.push(newPost);
+            selectedPost.value = newPost;
+          }
+
+          savePostsToStorage();
+          isWriting.value = false;
+          alert('성공적으로 저장되었습니다.');
+        };
+
+        const likePost = (post) => {
+          post.likes++;
+          savePostsToStorage();
+        };
+
+        const savePostsToStorage = () => {
+          localStorage.setItem('localhub_posts', JSON.stringify(posts.value));
+        };
+
+        // 유틸리티
+        const formatDate = (isoStr) => {
+          const date = new Date(isoStr);
+          return new Intl.DateTimeFormat(localeCode.value, {
+            month: 'numeric',
+            day: '2-digit'
+          }).format(date);
+        };
+
+        // 페이지네이션 제어
+        const setPage = (page) => { currentPage.value = page; };
+        const prevPage = () => { if (currentPage.value > 1) currentPage.value--; };
+        const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++; };
+
+        // 캘린더 조작
+        const prevMonth = () => {
+          if (currentMonth.value === 0) {
+            currentMonth.value = 11;
+            currentYear.value--;
+          } else {
+            currentMonth.value--;
+          }
+        };
+
+        const nextMonth = () => {
+          if (currentMonth.value === 11) {
+            currentMonth.value = 0;
+            currentYear.value++;
+          } else {
+            currentMonth.value++;
+          }
+        };
+
+        const isToday = (day) => {
+          const today = new Date();
+          return today.getFullYear() === currentYear.value && today.getMonth() === currentMonth.value && today.getDate() === day;
+        };
+
+        const getDayOfWeekClass = (day) => {
+          const date = new Date(currentYear.value, currentMonth.value, day);
+          const dayOfWeek = date.getDay();
+          if (dayOfWeek === 0) return 'text-red-500';
+          if (dayOfWeek === 6) return 'text-indigo-500';
+          return 'text-gray-700';
+        };
+
+        const formatEventDate = (dateStr) => {
+          const date = new Date(
+            Number(dateStr.slice(0, 4)),
+            Number(dateStr.slice(4, 6)) - 1,
+            Number(dateStr.slice(6, 8))
+          );
+          return new Intl.DateTimeFormat(localeCode.value, {
+            month: 'short',
+            day: 'numeric'
+          }).format(date);
+        };
+
+        // 게시판과 지도에서 사용하는 지역 데이터를 챗봇에도 주입한다.
+        const chatbot = LocalHub.features.createChatbot({
+          Vue,
+          embeddedData,
+          formatEventDate,
+          chatKeywords: ['금오산 명소 추천', '이달의 축제 추천', '경북 레포츠 정보', '쇼핑 시장 목록', '맛집 알려줘']
+        });
+
+        const {
+          showChat,
+          showKeyModal,
+          apiKey,
+          tempApiKey,
+          chatInput,
+          chatMessages,
+          chatKeywords,
+          toggleChat,
+          saveApiKey,
+          sendChatMessage,
+          sendKeyword
+        } = chatbot;
+
+        const getFestivalsOnDate = (day) => {
+          return monthlyFestivals.value.filter(fest => {
+            const startDay = parseInt(fest.eventstartdate.slice(6, 8));
+            const endDay = parseInt(fest.eventenddate.slice(6, 8));
+            return day >= startDay && day <= endDay;
+          });
+        };
+
+        const viewFestivalDetail = (fest) => {
+          alert(`🎉 [축제 안내] ${localText(fest.title)}\n📅 기간: ${formatEventDate(fest.eventstartdate)} ~ ${formatEventDate(fest.eventenddate)}\n📍 장소: ${localText(fest.addr1)}\nℹ️ 주요프로그램: ${fest.program}`);
+        };
+
+
+        // -------------------------
+        // 차트(Chart.js) 시각화
+        // -------------------------
+        let myChartInstance = null;
+        const renderChart = () => {
+          const ctx = document.getElementById('category-bar-chart').getContext('2d');
+          
+          if (myChartInstance) {
+            myChartInstance.destroy();
+          }
+
+          // 업로드된 지도 데이터의 카테고리별 건수를 사용한다.
+          const labels = LocalHub.data.mapData.categories.map(category => category.name);
+          const data = LocalHub.data.mapData.categories.map(category => category.count);
+
+          myChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: '구미/경북 스마트 투어 테마 개수 (건)',
+                data: data,
+                backgroundColor: [
+                  'rgba(34, 197, 94, 0.7)',  // 관광지 - Green
+                  'rgba(249, 115, 22, 0.7)',  // 레포츠 - Orange
+                  'rgba(59, 130, 246, 0.7)',  // 문화시설 - Blue
+                  'rgba(234, 179, 8, 0.7)',   // 쇼핑 - Yellow
+                  'rgba(168, 85, 247, 0.7)',  // 숙박 - Purple
+                  'rgba(20, 184, 166, 0.7)',  // 여행코스 - Teal
+                  'rgba(239, 68, 68, 0.7)',   // 음식점 - Red
+                  'rgba(219, 39, 119, 0.7)'   // 축제공연행사 - Pink
+                ],
+                borderColor: [
+                  'rgb(34, 197, 94)',
+                  'rgb(249, 115, 22)',
+                  'rgb(59, 130, 246)',
+                  'rgb(234, 179, 8)',
+                  'rgb(168, 85, 247)',
+                  'rgb(20, 184, 166)',
+                  'rgb(239, 68, 68)',
+                  'rgb(219, 39, 119)'
+                ],
+                borderWidth: 1.5,
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: false
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: {
+                    color: 'rgba(0, 0, 0, 0.05)'
+                  }
+                },
+                x: {
+                  grid: {
+                    display: false
+                  }
+                }
+              }
+            }
+          });
+        };
+
+        onBeforeUnmount(() => {
+          if (gameEngine) gameEngine.destroy();
+          clearTimeout(gameToastTimer);
+        });
+
+        return {
+          currentLang,
+          currentLangLabel,
+          languageMenuOpen,
+          t,
+          translateCategory,
+          localText,
+          changeLanguage,
+          weather,
+          weatherDescription,
+          weatherIcon,
+          weatherUpdatedAt,
+          fetchWeather,
+          activeTab,
+          categories,
+          boardCategories,
+          embeddedData,
+          posts,
+          selectedBoardCategory,
+          searchQuery,
+          currentPage,
+          itemsPerPage,
+          isWriting,
+          selectedPost,
+          showPwdModal,
+          showKeyModal,
+          showChat,
+          apiKey,
+          tempApiKey,
+          pwdInput,
+          postForm,
+          formPostId,
+          totalFilteredPosts,
+          totalPages,
+          paginatedPosts,
+          recentPosts,
+          currentYear,
+          currentMonth,
+          calendarBlanks,
+          calendarDays,
+          monthlyFestivals,
+          selectedMapType,
+          mapSearchQuery,
+          mapTypes,
+          filteredMapItems,
+          visibleMapItems,
+          remainingMapItemCount,
+          dashboardStats,
+          chatMessages,
+          chatInput,
+          chatKeywords,
+          gameCanvas,
+          gameView,
+          gameChoices,
+          gameToast,
+          gameHud,
+          gameLoadout,
+          gameResult,
+          gameRecords,
+          gameCollection,
+          gameStages,
+          gameProgress,
+          gameRankings,
+          gameLeaderboard,
+          selectedGameStage,
+          gamePlaceholderImage,
+          selectGameStage,
+          startGame,
+          startNextGameStage,
+          chooseGameUpgrade,
+          toggleGamePause,
+          returnToGameIntro,
+          viewGamePlaceOnMap,
+          formatGameTime,
+          formatGameDate,
+          saveGameStorage,
+          getGameRarityLabel,
+          getGameRarityClass,
+          getGameResultHighestRarity,
+          changeTab,
+          viewCategory,
+          viewPostDetail,
+          goBackToList,
+          filterBoardCategory,
+          openWriteForm,
+          openEditForm,
+          promptDelete,
+          closePwdModal,
+          confirmPassword,
+          closeWriteForm,
+          submitPost,
+          likePost,
+          formatDate,
+          setPage,
+          prevPage,
+          nextPage,
+          prevMonth,
+          nextMonth,
+          isToday,
+          getDayOfWeekClass,
+          formatEventDate,
+          getFestivalsOnDate,
+          viewFestivalDetail,
+          filterMapType,
+          focusOnMapItem,
+          loadMoreMapItems,
+          toggleChat,
+          saveApiKey,
+          sendChatMessage,
+          sendKeyword
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
